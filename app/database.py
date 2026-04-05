@@ -28,7 +28,8 @@ def init_db():
         CREATE TABLE IF NOT EXISTS scene_overrides (
             scene_id INTEGER PRIMARY KEY,
             fade_in REAL,
-            fixture_ids TEXT
+            fixture_ids TEXT,
+            dmx_values BLOB
         );
         CREATE TABLE IF NOT EXISTS deleted_scenes (
             scene_id INTEGER PRIMARY KEY
@@ -54,6 +55,11 @@ def init_db():
             master_level REAL
         );
     ''')
+    # Migrations
+    try:
+        conn.execute('ALTER TABLE scene_overrides ADD COLUMN dmx_values BLOB')
+    except Exception:
+        pass  # column already exists
     conn.close()
     logger.info('Database initialized')
 
@@ -74,9 +80,9 @@ def set_setting(key, value):
 
 
 def get_scene_overrides():
-    """Return {scene_id: {'fade_in': float, 'fixture_ids': list|None}}."""
+    """Return {scene_id: {'fade_in': float, 'fixture_ids': list|None, 'dmx_values': bytes|None}}."""
     conn = _connect()
-    rows = conn.execute('SELECT scene_id, fade_in, fixture_ids FROM scene_overrides').fetchall()
+    rows = conn.execute('SELECT scene_id, fade_in, fixture_ids, dmx_values FROM scene_overrides').fetchall()
     conn.close()
     result = {}
     for row in rows:
@@ -84,6 +90,7 @@ def get_scene_overrides():
         result[row['scene_id']] = {
             'fade_in': row['fade_in'],
             'fixture_ids': fix_ids,
+            'dmx_values': bytes(row['dmx_values']) if row['dmx_values'] else None,
         }
     return result
 
@@ -203,6 +210,19 @@ def next_custom_scene_id():
     conn.close()
     max_id = row['m'] if row and row['m'] is not None else 999
     return max(1000, max_id + 1)
+
+
+def save_scene_dmx(scene_id, dmx_values):
+    """Save modified DMX values for a scene."""
+    conn = _connect()
+    existing = conn.execute('SELECT fade_in, fixture_ids FROM scene_overrides WHERE scene_id=?',
+                            (scene_id,)).fetchone()
+    fade_in = existing['fade_in'] if existing else None
+    fix_ids = existing['fixture_ids'] if existing else None
+    conn.execute('''INSERT OR REPLACE INTO scene_overrides (scene_id, fade_in, fixture_ids, dmx_values)
+        VALUES (?, ?, ?, ?)''', (scene_id, fade_in, fix_ids, bytes(dmx_values)))
+    conn.commit()
+    conn.close()
 
 
 def save_scene_fixtures(scene_id, fixture_ids):

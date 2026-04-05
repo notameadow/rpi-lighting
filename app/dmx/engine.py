@@ -36,8 +36,8 @@ class DMXEngine:
         self._active_scene_id = None
         self._active_scene_name = None
 
-        # Manual overrides: {fixture_id: {channel_offset: value}}
-        self._overrides = {}
+        # Callback for persisting scene modifications
+        self._on_scene_modified = None
 
         # Haze: direct DMX ch8 (index 7) control, independent of scenes
         self._haze_on = False
@@ -91,14 +91,8 @@ class DMXEngine:
             if scene is None:
                 return False
             self._fade_start[:] = self._current[:]
-            # Clear overrides for fixtures controlled by this scene
-            for fix in self._fixtures:
-                base = fix.dmx_address - 1
-                if any((base + o) in scene.channel_mask for o in range(fix.channel_count)):
-                    self._overrides.pop(fix.id, None)
             for ch in scene.channel_mask:
                 self._target[ch] = scene.dmx_values[ch]
-            self._apply_overrides()
             self._fade_start_time = time.monotonic()
             self._fade_duration = fade_time if fade_time is not None else scene.fade_in
             # If master is at zero, snap channels instantly — crossfade is
@@ -130,28 +124,34 @@ class DMXEngine:
         return None
 
     # ------------------------------------------------------------------
-    # Manual fixture control
+    # Fixture control — writes to active scene permanently
     # ------------------------------------------------------------------
 
     def set_fixture_channels(self, fixture_id, values):
-        """Set multiple channels on a fixture. values: {offset: value}."""
+        """Set channels on a fixture. Modifies the active scene permanently."""
         with self._lock:
             fix = self._find_fixture(fixture_id)
             if fix is None:
                 return False
-            overrides = self._overrides.setdefault(fixture_id, {})
+            scene = self._find_scene(self._active_scene_id) if self._active_scene_id else None
             for offset, value in values.items():
                 idx = fix.dmx_address - 1 + offset
                 if 0 <= idx < DMX_CHANNELS:
-                    overrides[offset] = value
                     self._target[idx] = value
                     self._current[idx] = value
+                    # Write to scene's stored values
+                    if scene:
+                        dmx = bytearray(scene.dmx_values)
+                        dmx[idx] = value
+                        scene.dmx_values = bytes(dmx)
+            # Persist
+            if scene and self._on_scene_modified:
+                self._on_scene_modified(scene)
             return True
 
-    def clear_fixture_override(self, fixture_id):
-        """Remove overrides for a fixture, revert to active scene values."""
+    def clear_fixture_channels(self, fixture_id):
+        """Reset a fixture to the active scene's stored values."""
         with self._lock:
-            self._overrides.pop(fixture_id, None)
             scene = self._find_scene(self._active_scene_id) if self._active_scene_id else None
             if scene:
                 fix = self._find_fixture(fixture_id)
@@ -168,17 +168,6 @@ class DMXEngine:
             if f.id == fixture_id:
                 return f
         return None
-
-    def _apply_overrides(self):
-        """Apply manual overrides on top of target buffer."""
-        for fix_id, channels in self._overrides.items():
-            fix = self._find_fixture(fix_id)
-            if fix is None:
-                continue
-            for offset, value in channels.items():
-                idx = fix.dmx_address - 1 + offset
-                if 0 <= idx < DMX_CHANNELS:
-                    self._target[idx] = value
 
     # ------------------------------------------------------------------
     # Master / blackout
@@ -344,7 +333,6 @@ class DMXEngine:
                 'blackout': self._blackout,
                 'fading': fading,
                 'fade_progress': fade_progress,
-                'overrides': {k: dict(v) for k, v in self._overrides.items()},
                 'master_fading': self._master_fade_duration > 0 and
                     (time.monotonic() - self._master_fade_start_time) < self._master_fade_duration,
                 'haze': self._haze_on,

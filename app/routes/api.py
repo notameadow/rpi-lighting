@@ -276,7 +276,7 @@ def set_color(fixture_id):
 @api_bp.route('/api/fixture/<int:fixture_id>/clear', methods=['POST'])
 @require_auth
 def clear_override(fixture_id):
-    ok = _engine().clear_fixture_override(fixture_id)
+    ok = _engine().clear_fixture_channels(fixture_id)
     return jsonify({'ok': ok})
 
 

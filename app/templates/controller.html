@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
   <title>Lighting</title>
+  <link rel="manifest" href="/static/manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="theme-color" content="#0a0a0a">
+  <link rel="apple-touch-icon" href="/static/icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
@@ -102,12 +107,12 @@
     }
     #master-slider::-webkit-slider-thumb {
       -webkit-appearance: none;
-      width: 24px;
-      height: 24px;
+      width: 32px;
+      height: 32px;
       border-radius: 4px;
       background: var(--accent);
       border: 2px solid #b87a10;
-      margin-top: -10px;
+      margin-top: -14px;
       cursor: pointer;
     }
     #master-val {
@@ -119,18 +124,22 @@
       text-align: right;
     }
     .fx-btn {
-      padding: 6px 10px;
+      padding: 10px 16px;
       border: 1px solid var(--border);
       border-radius: 4px;
       background: var(--channel);
       color: var(--muted);
       font-family: var(--mono);
       font-weight: 700;
-      font-size: 0.6rem;
+      font-size: 0.75rem;
       letter-spacing: 0.08em;
       cursor: pointer;
       white-space: nowrap;
       transition: all 0.1s;
+      touch-action: manipulation;
+      min-height: 40px;
+      display: flex;
+      align-items: center;
     }
     .fx-btn.active {
       border-color: var(--accent);
@@ -166,12 +175,12 @@
     }
     .strobe-slider::-webkit-slider-thumb {
       -webkit-appearance: none;
-      width: 24px;
-      height: 24px;
+      width: 32px;
+      height: 32px;
       border-radius: 4px;
       background: #e74c3c;
       border: 2px solid #a93226;
-      margin-top: -10px;
+      margin-top: -14px;
       cursor: pointer;
     }
     #active-scene-indicator {
@@ -306,9 +315,6 @@
     .vfader-wrap.rgb .vfader-fill {
       background: var(--fader-color, var(--accent));
     }
-    .ch-strip.has-override .ch-label {
-      color: var(--accent);
-    }
     .ch-strip.active-scene .ch-label {
       color: var(--accent);
     }
@@ -360,10 +366,10 @@
       z-index: 200;
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 12px;
+      border-radius: 8px;
+      padding: 16px;
       box-shadow: 0 8px 32px rgba(0,0,0,0.7);
-      min-width: 200px;
+      width: 260px;
     }
     #color-popover.visible { display: block; }
     #color-popover h3 {
@@ -373,62 +379,91 @@
       color: var(--accent);
       text-transform: uppercase;
       letter-spacing: 0.1em;
+      margin-bottom: 12px;
+    }
+    #color-canvas {
+      display: block;
+      width: 228px;
+      height: 200px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      cursor: crosshair;
+      touch-action: none;
       margin-bottom: 10px;
+    }
+    #hue-slider-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    #hue-slider {
+      flex: 1;
+      height: 28px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: linear-gradient(to right,
+        hsl(0,100%,50%), hsl(30,100%,50%), hsl(60,100%,50%),
+        hsl(120,100%,50%), hsl(180,100%,50%), hsl(240,100%,50%),
+        hsl(300,100%,50%), hsl(360,100%,50%));
+      border-radius: 4px;
+      outline: none;
+    }
+    #hue-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px; height: 28px;
+      border-radius: 3px;
+      background: #fff;
+      border: 2px solid #333;
+      cursor: pointer;
     }
     .pop-swatches {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      display: flex;
       gap: 6px;
       margin-bottom: 10px;
+      flex-wrap: wrap;
     }
     .pop-swatch {
-      width: 100%;
-      aspect-ratio: 1;
+      width: 28px; height: 28px;
       border-radius: 4px;
       border: 2px solid var(--border);
       cursor: pointer;
-      transition: border-color 0.1s;
     }
     .pop-swatch:active { border-color: var(--accent); }
-    .pop-slider-row {
+    .pop-intensity-row {
       display: flex;
       align-items: center;
-      gap: 6px;
-      margin-bottom: 6px;
+      gap: 8px;
+      margin-bottom: 8px;
     }
-    .pop-slider-row label {
+    .pop-intensity-row label {
       font-family: var(--mono);
       font-size: 0.6rem;
       font-weight: 600;
       color: var(--muted);
-      width: 14px;
     }
-    .pop-slider-row input[type=range] {
+    .pop-intensity-row input[type=range] {
       flex: 1;
       height: 24px;
       -webkit-appearance: none;
       appearance: none;
       background: transparent;
     }
-    .pop-slider-row input[type=range]::-webkit-slider-runnable-track {
+    .pop-intensity-row input::-webkit-slider-runnable-track {
       height: 4px;
-      background: var(--groove);
+      background: linear-gradient(to right, #000, #fff);
       border-radius: 2px;
-      border: 1px solid var(--border);
     }
-    .pop-slider-row input[type=range]::-webkit-slider-thumb {
+    .pop-intensity-row input::-webkit-slider-thumb {
       -webkit-appearance: none;
       width: 18px; height: 18px;
       border-radius: 3px;
-      border: 1px solid var(--border);
+      background: #fff;
+      border: 1px solid #666;
       margin-top: -8px;
       cursor: pointer;
     }
-    .pop-slider-row input.sl-r::-webkit-slider-thumb { background: #e74c3c; }
-    .pop-slider-row input.sl-g::-webkit-slider-thumb { background: #2ecc71; }
-    .pop-slider-row input.sl-b::-webkit-slider-thumb { background: #3498db; }
-    .pop-slider-row input.sl-w::-webkit-slider-thumb { background: #ecf0f1; }
-    .pop-slider-row .sv {
+    .pop-intensity-row .sv {
       font-family: var(--mono);
       font-size: 0.6rem;
       color: var(--muted);
@@ -442,7 +477,7 @@
     }
     .pop-actions button {
       flex: 1;
-      padding: 6px 8px;
+      padding: 8px 8px;
       border: 1px solid var(--border);
       border-radius: 3px;
       background: var(--channel);
@@ -452,6 +487,7 @@
       font-weight: 600;
       cursor: pointer;
       letter-spacing: 0.05em;
+      touch-action: manipulation;
     }
     .pop-actions button:active { background: var(--border); }
 
@@ -494,7 +530,26 @@
       word-break: break-word;
       user-select: none;
       -webkit-user-select: none;
+      touch-action: manipulation;
       overflow: hidden;
+    }
+    .scene-btn.dragging {
+      opacity: 0.4;
+    }
+    .scene-btn.drag-over {
+      border-color: var(--accent);
+      box-shadow: 0 0 8px rgba(232,160,32,0.4);
+    }
+    .edit-mode .scene-btn {
+      cursor: grab;
+    }
+    .edit-mode .scene-btn::after {
+      content: '⋮';
+      position: absolute;
+      top: 2px;
+      right: 4px;
+      font-size: 0.7rem;
+      color: rgba(255,255,255,0.3);
     }
     .scene-btn:active {
       transform: scale(0.96);
@@ -851,6 +906,7 @@
         oninput="strobeSpeedChanged(this.value)" class="strobe-slider" disabled>
     </div>
     <div id="active-scene-indicator"></div>
+    <button class="fx-btn" id="edit-mode-btn" onclick="toggleEditMode()">EDIT</button>
     <button class="fx-btn" id="settings-btn" onclick="toggleSettings()" title="Settings">&#9881;</button>
     <div class="status-led" id="status-led"></div>
   </div>
@@ -904,6 +960,22 @@
       </div>
       <div id="diff-result" style="font-family:var(--mono);font-size:0.6rem;color:var(--text);max-height:200px;overflow-y:auto;display:none;background:var(--groove);border:1px solid var(--border);border-radius:4px;padding:8px;white-space:pre-wrap"></div>
     </div>
+    <div class="setting-row">
+      <label>Keep screen on</label>
+      <button class="fx-btn" id="wake-lock-btn" onclick="toggleWakeLock()">OFF</button>
+    </div>
+    <div class="setting-row">
+      <label>Font size</label>
+      <input type="range" id="font-size-slider" min="10" max="22" value="14" step="1"
+        oninput="setFontSize(this.value)" style="flex:1;accent-color:var(--accent)">
+      <span id="font-size-val" style="font-family:var(--mono);font-size:0.7rem;min-width:30px;text-align:right">14px</span>
+    </div>
+    <div class="setting-row">
+      <label>UI scale</label>
+      <input type="range" id="ui-scale-slider" min="80" max="150" value="100" step="5"
+        oninput="setUIScale(this.value)" style="flex:1;accent-color:var(--accent)">
+      <span id="ui-scale-val" style="font-family:var(--mono);font-size:0.7rem;min-width:36px;text-align:right">100%</span>
+    </div>
     <button class="settings-close" onclick="toggleSettings()">CLOSE</button>
   </div>
 </div>
@@ -943,13 +1015,21 @@
   </div>
 </div>
 
-<!-- Color picker popover (shared, repositioned per fixture) -->
+<!-- Color picker popover -->
 <div id="color-popover">
   <h3 id="pop-title">—</h3>
+  <canvas id="color-canvas" width="228" height="200"></canvas>
+  <div id="hue-slider-row">
+    <input type="range" id="hue-slider" min="0" max="360" value="0" oninput="popHueChanged(this.value)">
+  </div>
   <div class="pop-swatches" id="pop-swatches"></div>
-  <div id="pop-sliders"></div>
+  <div class="pop-intensity-row" id="pop-white-row" style="display:none">
+    <label>W</label>
+    <input type="range" id="pop-white" min="0" max="255" value="0" oninput="popWhiteChanged(this.value)">
+    <span class="sv" id="pop-white-val">0</span>
+  </div>
   <div class="pop-actions">
-    <button onclick="popClear()">CLEAR</button>
+    <button onclick="popReset()">RESET</button>
     <button onclick="closePopover()">CLOSE</button>
   </div>
 </div>
@@ -1227,14 +1307,11 @@ function syncFaders() {
       }
     }
 
-    // Highlight: active scene controls vs inactive, and manual overrides
     const strip = document.getElementById('ch-' + f.id);
     if (strip) {
-      const hasOv = state.overrides && state.overrides[f.id];
-      strip.classList.toggle('has-override', !!hasOv);
       const activeScene = scenes.find(s => s.id === state.active_scene_id);
       const controlled = activeScene && activeScene.fixtures && activeScene.fixtures.includes(f.id);
-      strip.classList.toggle('inactive', !controlled && !hasOv);
+      strip.classList.toggle('inactive', !controlled);
       strip.classList.toggle('active-scene', !!controlled);
     }
   });
@@ -1243,6 +1320,119 @@ function syncFaders() {
 /* ═══════════════════════════════════════════════════════════════════════════
    COLOR POPOVER
    ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── HSV colour math ─────────────────────────────────────────────────── */
+
+let popHue = 0;       // 0-360
+let popSat = 1;       // 0-1 (from canvas X)
+let popVal = 1;       // 0-1 (from canvas Y)
+
+function hsvToRgb(h, s, v) {
+  h = ((h % 360) + 360) % 360;
+  const c = v * s;
+  const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+  const m = v - c;
+  let r, g, b;
+  if (h < 60)       { r=c; g=x; b=0; }
+  else if (h < 120) { r=x; g=c; b=0; }
+  else if (h < 180) { r=0; g=c; b=x; }
+  else if (h < 240) { r=0; g=x; b=c; }
+  else if (h < 300) { r=x; g=0; b=c; }
+  else              { r=c; g=0; b=x; }
+  return { r: Math.round((r+m)*255), g: Math.round((g+m)*255), b: Math.round((b+m)*255) };
+}
+
+function rgbToHsv(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+  const d = mx - mn;
+  let h = 0, s = mx === 0 ? 0 : d / mx, v = mx;
+  if (d > 0) {
+    if (mx === r) h = ((g - b) / d + 6) % 6;
+    else if (mx === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h *= 60;
+  }
+  return { h, s, v };
+}
+
+/* ── Canvas SV picker ────────────────────────────────────────────────── */
+
+function drawSVCanvas() {
+  const canvas = document.getElementById('color-canvas');
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+
+  // Draw saturation-value gradient for current hue
+  for (let y = 0; y < h; y++) {
+    const v = 1 - y / h;
+    for (let x = 0; x < w; x++) {
+      const s = x / w;
+      const rgb = hsvToRgb(popHue, s, v);
+      ctx.fillStyle = 'rgb(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ')';
+      ctx.fillRect(x, y, 1, 1);
+    }
+  }
+
+  // Draw crosshair at current position
+  const cx = popSat * w, cy = (1 - popVal) * h;
+  ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 8, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 9, 0, Math.PI * 2);
+  ctx.stroke();
+}
+
+function canvasPickFromEvent(e) {
+  const canvas = document.getElementById('color-canvas');
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left) / rect.width;
+  const y = (e.clientY - rect.top) / rect.height;
+  popSat = Math.max(0, Math.min(1, x));
+  popVal = Math.max(0, Math.min(1, 1 - y));
+  drawSVCanvas();
+  sendPopColour();
+}
+
+let canvasDragging = false;
+document.getElementById('color-canvas').addEventListener('pointerdown', (e) => {
+  canvasDragging = true;
+  e.target.setPointerCapture(e.pointerId);
+  canvasPickFromEvent(e);
+});
+document.getElementById('color-canvas').addEventListener('pointermove', (e) => {
+  if (canvasDragging) canvasPickFromEvent(e);
+});
+document.getElementById('color-canvas').addEventListener('pointerup', () => { canvasDragging = false; });
+document.getElementById('color-canvas').addEventListener('pointercancel', () => { canvasDragging = false; });
+
+function popHueChanged(val) {
+  popHue = parseInt(val);
+  drawSVCanvas();
+  sendPopColour();
+}
+
+function popWhiteChanged(val) {
+  if (popFixture) {
+    throttledPost('pop-w-' + popFixture.id, '/api/fixture/' + popFixture.id + '/color',
+      { w: parseInt(val) });
+  }
+  document.getElementById('pop-white-val').textContent = val;
+}
+
+function sendPopColour() {
+  if (!popFixture) return;
+  const rgb = hsvToRgb(popHue, popSat, popVal);
+  throttledPost('pop-' + popFixture.id, '/api/fixture/' + popFixture.id + '/color',
+    { r: rgb.r, g: rgb.g, b: rgb.b });
+}
+
+/* ── Popover open/close ──────────────────────────────────────────────── */
 
 function openPopover(fix, evt) {
   popFixture = fix;
@@ -1257,47 +1447,43 @@ function openPopover(fix, evt) {
     d.className = 'pop-swatch';
     d.style.background = p.n === 'Off' ? 'var(--groove)' : 'rgb('+p.r+','+p.g+','+p.b+')';
     if (p.n === 'Off') d.style.border = '2px dashed var(--muted)';
-    d.onclick = () => applyPreset(fix.id, p.r, p.g, p.b);
+    d.onclick = () => {
+      const hsv = rgbToHsv(p.r, p.g, p.b);
+      popHue = hsv.h; popSat = hsv.s; popVal = hsv.v;
+      document.getElementById('hue-slider').value = popHue;
+      drawSVCanvas();
+      sendPopColour();
+    };
     sw.appendChild(d);
   });
 
-  // Sliders
-  const sl = document.getElementById('pop-sliders');
-  sl.innerHTML = '';
-  const chs = [
-    {l:'R', cls:'sl-r', param:'r', show: fix.channels.includes('Red')},
-    {l:'G', cls:'sl-g', param:'g', show: fix.channels.includes('Green')},
-    {l:'B', cls:'sl-b', param:'b', show: fix.channels.includes('Blue')},
-    {l:'W', cls:'sl-w', param:'w', show: fix.channels.includes('White')},
-  ];
-  chs.forEach(c => {
-    if (!c.show) return;
-    const row = document.createElement('div');
-    row.className = 'pop-slider-row';
-    row.innerHTML =
-      '<label>' + c.l + '</label>' +
-      '<input type="range" class="' + c.cls + '" min="0" max="255" value="0" ' +
-        'id="psl-' + c.param + '" oninput="popSlider(\'' + c.param + '\',this.value)">' +
-      '<span class="sv" id="psv-' + c.param + '">0</span>';
-    sl.appendChild(row);
-  });
+  // White slider for Triangle-type fixtures
+  const wRow = document.getElementById('pop-white-row');
+  if (fix.channels.includes('White')) {
+    wRow.style.display = 'flex';
+    const levels = state.levels && state.levels[fix.id];
+    const w = levels ? (levels.White || 0) : 0;
+    document.getElementById('pop-white').value = w;
+    document.getElementById('pop-white-val').textContent = w;
+  } else {
+    wRow.style.display = 'none';
+  }
 
-  // Pre-fill sliders from current levels
+  // Set initial HSV from current levels
   const levels = state.levels && state.levels[fix.id];
   if (levels) {
-    const map = {r:'Red', g:'Green', b:'Blue', w:'White'};
-    Object.entries(map).forEach(([param, chName]) => {
-      const v = levels[chName] || 0;
-      const slEl = document.getElementById('psl-' + param);
-      const svEl = document.getElementById('psv-' + param);
-      if (slEl) slEl.value = v;
-      if (svEl) svEl.textContent = v;
-    });
+    const r = levels.Red || 0, g = levels.Green || 0, b = levels.Blue || 0;
+    const hsv = rgbToHsv(r, g, b);
+    popHue = hsv.h; popSat = hsv.s; popVal = hsv.v;
+  } else {
+    popHue = 0; popSat = 1; popVal = 1;
   }
+  document.getElementById('hue-slider').value = popHue;
+  drawSVCanvas();
 
   // Position below the tapped element, clamped to viewport
   const rect = evt.target.getBoundingClientRect();
-  const popW = 220, popH = 280;
+  const popW = 270, popH = 400;
   let left = rect.left;
   let top = rect.bottom + 6;
   if (left + popW > window.innerWidth) left = window.innerWidth - popW - 8;
@@ -1326,29 +1512,7 @@ function closePopover() {
   popFixture = null;
 }
 
-function popSlider(param, val) {
-  val = parseInt(val);
-  const sv = document.getElementById('psv-' + param);
-  if (sv) sv.textContent = val;
-  if (popFixture) {
-    throttledPost('pop-' + popFixture.id, '/api/fixture/' + popFixture.id + '/color', { [param]: val });
-  }
-}
-
-function applyPreset(fid, r, g, b) {
-  const body = { r, g, b, intensity: (r||g||b) ? 255 : 0 };
-  throttledPost('preset-' + fid, '/api/fixture/' + fid + '/color', body);
-  // Update popover sliders
-  ['r','g','b'].forEach((p,i) => {
-    const v = [r,g,b][i];
-    const sl = document.getElementById('psl-' + p);
-    const sv = document.getElementById('psv-' + p);
-    if (sl) sl.value = v;
-    if (sv) sv.textContent = v;
-  });
-}
-
-function popClear() {
+function popReset() {
   if (popFixture) {
     api('/api/fixture/' + popFixture.id + '/clear', {
       method:'POST', headers:{'Content-Type':'application/json'}
@@ -1372,21 +1536,87 @@ function isSceneHidden(name) {
   return HIDDEN_SCENE_PATTERNS.some(re => re.test(trimmed));
 }
 
+let sceneOrder = []; // filtered scene IDs in display order
+
 function renderScenes() {
   const grid = document.getElementById('scene-grid');
   grid.innerHTML = '';
-  scenes.filter(s => !isSceneHidden(s.name)).forEach(s => {
+  const filtered = scenes.filter(s => !isSceneHidden(s.name));
+
+  // Restore saved order if available
+  try {
+    const saved = localStorage.getItem('ltg-scene-order');
+    if (saved) {
+      const savedIds = JSON.parse(saved);
+      const idSet = new Set(filtered.map(s => s.id));
+      // Use saved order for known scenes, append any new ones at the end
+      const ordered = [];
+      savedIds.forEach(id => { if (idSet.has(id)) ordered.push(id); });
+      filtered.forEach(s => { if (!ordered.includes(s.id)) ordered.push(s.id); });
+      sceneOrder = ordered;
+    } else {
+      sceneOrder = filtered.map(s => s.id);
+    }
+  } catch(_) {
+    sceneOrder = filtered.map(s => s.id);
+  }
+
+  const sceneMap = {};
+  filtered.forEach(s => { sceneMap[s.id] = s; });
+
+  sceneOrder.forEach(id => {
+    const s = sceneMap[id];
+    if (!s) return;
     const btn = document.createElement('div');
     btn.className = 'scene-btn';
     btn.dataset.id = s.id;
+    btn.dataset.orderIdx = sceneOrder.indexOf(id);
     btn.style.background = s.button_color;
     btn.style.color = isLight(s.button_color) ? '#0a0a0a' : 'rgba(255,255,255,0.9)';
     btn.textContent = s.name;
-    btn.onclick = () => {
+    btn.draggable = true;
+
+    btn.onclick = (e) => {
       if (btn._longPressed) { btn._longPressed = false; return; }
-      recallScene(s.id);
+      if (editMode) {
+        openSceneCtx(s.id, e.clientX, e.clientY);
+      } else {
+        recallScene(s.id);
+      }
     };
+
+    // Drag and drop for reorder (edit mode only)
+    btn.addEventListener('dragstart', (e) => {
+      if (!editMode) { e.preventDefault(); return; }
+      btn.classList.add('dragging');
+      e.dataTransfer.setData('text/plain', s.id);
+    });
+    btn.addEventListener('dragend', () => { btn.classList.remove('dragging'); });
+    btn.addEventListener('dragover', (e) => {
+      if (!editMode) return;
+      e.preventDefault();
+      btn.classList.add('drag-over');
+    });
+    btn.addEventListener('dragleave', () => { btn.classList.remove('drag-over'); });
+    btn.addEventListener('drop', (e) => {
+      e.preventDefault();
+      btn.classList.remove('drag-over');
+      if (!editMode) return;
+      const draggedId = parseInt(e.dataTransfer.getData('text/plain'));
+      const targetId = s.id;
+      if (draggedId === targetId) return;
+      // Reorder
+      const fromIdx = sceneOrder.indexOf(draggedId);
+      const toIdx = sceneOrder.indexOf(targetId);
+      sceneOrder.splice(fromIdx, 1);
+      sceneOrder.splice(toIdx, 0, draggedId);
+      try { localStorage.setItem('ltg-scene-order', JSON.stringify(sceneOrder)); } catch(_) {}
+      renderScenes();
+    });
+
+    // Context menu (long-press on touch, right-click on desktop) — always available
     attachSceneContextEvents(btn, s.id);
+
     grid.appendChild(btn);
   });
 }
@@ -1409,6 +1639,18 @@ async function recallScene(id) {
     headers:{'Content-Type':'application/json'},
     body: JSON.stringify({ fade: s ? s.fade_in : undefined })
   });
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   EDIT MODE
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+let editMode = false;
+
+function toggleEditMode() {
+  editMode = !editMode;
+  document.getElementById('edit-mode-btn').classList.toggle('active', editMode);
+  document.getElementById('scene-bank').classList.toggle('edit-mode', editMode);
 }
 
 function updateSceneButtons() {
@@ -1719,6 +1961,19 @@ async function toggleSettings() {
       }
     }
     loadHistory();
+    // Wake lock button
+    const wlBtn = document.getElementById('wake-lock-btn');
+    wlBtn.textContent = wakeLockActive ? 'ON' : 'OFF';
+    wlBtn.classList.toggle('active', wakeLockActive);
+    // Restore display settings sliders
+    try {
+      const fs = localStorage.getItem('ltg-font-size') || '14';
+      document.getElementById('font-size-slider').value = fs;
+      document.getElementById('font-size-val').textContent = fs + 'px';
+      const sc = localStorage.getItem('ltg-ui-scale') || '100';
+      document.getElementById('ui-scale-slider').value = sc;
+      document.getElementById('ui-scale-val').textContent = sc + '%';
+    } catch(_) {}
   }
 }
 
@@ -1730,6 +1985,89 @@ function saveDefaultScene(val) {
     body: JSON.stringify({ default_scene: sceneId })
   });
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FONT SIZE + UI SCALE (localStorage only, per-device)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function setFontSize(px) {
+  document.documentElement.style.fontSize = px + 'px';
+  document.getElementById('font-size-val').textContent = px + 'px';
+  try { localStorage.setItem('ltg-font-size', px); } catch(_) {}
+}
+
+function setUIScale(pct) {
+  document.documentElement.style.zoom = pct / 100;
+  document.getElementById('ui-scale-val').textContent = pct + '%';
+  try { localStorage.setItem('ltg-ui-scale', pct); } catch(_) {}
+}
+
+// Restore on load
+try {
+  const fs = localStorage.getItem('ltg-font-size');
+  if (fs) { document.documentElement.style.fontSize = fs + 'px'; }
+  const sc = localStorage.getItem('ltg-ui-scale');
+  if (sc) { document.documentElement.style.zoom = parseInt(sc) / 100; }
+} catch(_) {}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SCREEN WAKE LOCK — prevents screen sleep on iOS/Android
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+let wakeLockActive = false;
+let wakeLockVideo = null;
+
+function toggleWakeLock() {
+  wakeLockActive = !wakeLockActive;
+  if (wakeLockActive) {
+    enableWakeLock();
+  } else {
+    disableWakeLock();
+  }
+  try { localStorage.setItem('ltg-wake-lock', wakeLockActive ? '1' : '0'); } catch(_) {}
+}
+
+function enableWakeLock() {
+  // Try native Wake Lock API first (Chrome, some Android browsers)
+  if ('wakeLock' in navigator) {
+    navigator.wakeLock.request('screen').catch(() => {});
+    wakeLockActive = true;
+    return;
+  }
+  // Fallback: invisible video loop (works on iOS Safari + PWA)
+  if (!wakeLockVideo) {
+    wakeLockVideo = document.createElement('video');
+    wakeLockVideo.setAttribute('playsinline', '');
+    wakeLockVideo.setAttribute('muted', '');
+    wakeLockVideo.setAttribute('loop', '');
+    wakeLockVideo.style.position = 'fixed';
+    wakeLockVideo.style.top = '-1px';
+    wakeLockVideo.style.left = '-1px';
+    wakeLockVideo.style.width = '1px';
+    wakeLockVideo.style.height = '1px';
+    wakeLockVideo.style.opacity = '0.01';
+    // Tiny base64-encoded MP4 (1 frame, silent)
+    wakeLockVideo.src = 'data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAAAIZnJlZQAAAAhtZGF0AAAA1m1vb3YAAABsbXZoZAAAAAAAAAAAAAAAAAAAA+gAAAAAAAEAAAEAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAAYdHJhawAAAFx0a2hkAAAAAwAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAkZWR0cwAAABxlbHN0AAAAAAAAAAEAAAAAAAEAAAAAAAAAAWBtZGlhAAAAIG1kaGQAAAAAAAAAAAAAAAAAADIAAAACAFXEAAAAAAAtaGRscgAAAAAAAAAAdmlkZQAAAAAAAAAAAAAAAAAAAA==';
+    document.body.appendChild(wakeLockVideo);
+  }
+  wakeLockVideo.play().catch(() => {});
+  wakeLockActive = true;
+}
+
+function disableWakeLock() {
+  if (wakeLockVideo) {
+    wakeLockVideo.pause();
+  }
+  wakeLockActive = false;
+}
+
+// Restore wake lock preference
+try {
+  if (localStorage.getItem('ltg-wake-lock') === '1') {
+    wakeLockActive = true;
+    enableWakeLock();
+  }
+} catch(_) {}
 
 let uploading = false;
 

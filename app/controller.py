@@ -5,7 +5,7 @@ import glob
 import logging
 from app.config import LUMINAIR_DIR
 from app.luminair.parser import parse_luminair
-from app.database import get_scene_overrides, get_setting, get_deleted_scene_ids, get_custom_scenes, get_uploads
+from app.database import get_scene_overrides, get_setting, get_deleted_scene_ids, get_custom_scenes, get_uploads, save_scene_dmx
 
 logger = logging.getLogger('lighting.controller')
 
@@ -64,6 +64,7 @@ class Controller:
 
         self.engine.set_fixtures(fixtures)
         self.engine.set_scenes(scenes)
+        self.engine._on_scene_modified = self._persist_scene
         logger.info('Loaded %s: %d fixtures, %d scenes',
                      os.path.basename(filepath), len(fixtures), len(scenes))
 
@@ -79,6 +80,10 @@ class Controller:
             except (ValueError, TypeError):
                 pass
 
+    def _persist_scene(self, scene):
+        """Called by engine when a scene's DMX values are modified by fader."""
+        save_scene_dmx(scene.id, scene.dmx_values)
+
     def _apply_overrides(self):
         """Apply saved fade times and fixture masks from the database."""
         overrides = get_scene_overrides()
@@ -87,6 +92,8 @@ class Controller:
             ov = overrides.get(scene.id)
             if ov is None:
                 continue
+            if ov.get('dmx_values') is not None:
+                scene.dmx_values = ov['dmx_values']
             if ov['fade_in'] is not None:
                 scene.fade_in = ov['fade_in']
             if ov['fixture_ids'] is not None:
