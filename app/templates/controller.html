@@ -1,0 +1,1964 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+  <title>Lighting</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:       #0a0a0a;
+      --surface:  #141414;
+      --channel:  #1a1a1a;
+      --border:   #2a2a2a;
+      --groove:   #0d0d0d;
+      --accent:   #e8a020;
+      --accent-dim: rgba(232,160,32,0.15);
+      --text:     #d0d0d0;
+      --muted:    #555;
+      --danger:   #c0392b;
+      --danger-glow: rgba(192,57,43,0.4);
+      --ok:       #27ae60;
+      --fader-w:  36px;
+      --fader-h:  clamp(100px, 22vh, 200px);
+      --mono:     'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+      --sans:     'DM Sans', system-ui, -apple-system, sans-serif;
+    }
+    html, body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 14px;
+      height: 100%;
+      overflow: hidden;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-text-size-adjust: 100%;
+      overscroll-behavior: none;
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       LAYOUT — three horizontal bands: header, faders, scenes
+       ══════════════════════════════════════════════════════════════════ */
+    #app {
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    /* ── HEADER BAR ─────────────────────────────────────────────────── */
+    #header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 8px 16px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: relative;
+      z-index: 10;
+    }
+    #header h1 {
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .hdr-slider-section {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+      min-width: 0;
+    }
+    .hdr-slider-section label {
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    #master-slider {
+      flex: 1;
+      min-width: 60px;
+      height: 32px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+    }
+    #master-slider::-webkit-slider-runnable-track {
+      height: 6px;
+      background: var(--groove);
+      border-radius: 3px;
+      border: 1px solid var(--border);
+    }
+    #master-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      background: var(--accent);
+      border: 2px solid #b87a10;
+      margin-top: -10px;
+      cursor: pointer;
+    }
+    #master-val {
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--accent);
+      min-width: 30px;
+      text-align: right;
+    }
+    .fx-btn {
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: var(--channel);
+      color: var(--muted);
+      font-family: var(--mono);
+      font-weight: 700;
+      font-size: 0.6rem;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.1s;
+    }
+    .fx-btn.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-dim);
+    }
+    .fx-btn.strobe-active {
+      border-color: #e74c3c;
+      color: #e74c3c;
+      background: rgba(231,76,60,0.15);
+      animation: strobe-flash 0.3s ease infinite;
+    }
+    @keyframes strobe-flash {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+    .strobe-slider {
+      flex: 1;
+      min-width: 60px;
+      height: 32px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+    }
+    .strobe-slider:disabled {
+      opacity: 0.3;
+    }
+    .strobe-slider::-webkit-slider-runnable-track {
+      height: 6px;
+      background: var(--groove);
+      border-radius: 3px;
+      border: 1px solid var(--border);
+    }
+    .strobe-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      background: #e74c3c;
+      border: 2px solid #a93226;
+      margin-top: -10px;
+      cursor: pointer;
+    }
+    #active-scene-indicator {
+      padding: 6px 16px;
+      border-radius: 4px;
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      white-space: nowrap;
+      text-align: center;
+      display: none;
+    }
+    #active-scene-indicator.visible {
+      display: block;
+    }
+    .status-led {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--ok);
+      box-shadow: 0 0 6px rgba(39,174,96,0.5);
+      flex-shrink: 0;
+    }
+    .status-led.off {
+      background: var(--danger);
+      box-shadow: 0 0 6px var(--danger-glow);
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       FADER STRIP — horizontal row of vertical channel strips
+       ══════════════════════════════════════════════════════════════════ */
+    #fader-strip {
+      display: flex;
+      align-items: stretch;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding: 8px 4px 6px;
+      gap: 2px;
+      scrollbar-width: none;
+      overscroll-behavior-x: none;
+      touch-action: pan-x;
+    }
+    #fader-strip::-webkit-scrollbar { display: none; }
+
+    .group-sep {
+      width: 2px;
+      flex-shrink: 0;
+      background: var(--border);
+      margin: 0 3px;
+      border-radius: 1px;
+    }
+
+    .ch-strip {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex-shrink: 0;
+      gap: 3px;
+    }
+    .ch-strip.single {
+      min-width: var(--fader-w);
+      width: var(--fader-w);
+    }
+    .ch-strip.dot-single {
+      min-width: var(--fader-w);
+      width: var(--fader-w);
+    }
+    .fader-pair {
+      display: flex;
+      gap: 2px;
+    }
+    /* Colour dot above single fader */
+    .color-dot {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: border-color 0.15s;
+    }
+    .color-dot:active {
+      border-color: var(--accent);
+    }
+
+    /* Vertical fader */
+    .vfader-wrap {
+      position: relative;
+      width: 28px;
+      height: var(--fader-h);
+      background: var(--groove);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+      cursor: pointer;
+      touch-action: pan-x;
+    }
+    .vfader-fill {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      pointer-events: none;
+    }
+    .vfader-wrap.int .vfader-fill {
+      background: rgba(255,255,255,0.5);
+    }
+    /* Smooth transitions during poll updates, disabled during touch */
+    .vfader-wrap.smooth .vfader-fill,
+    .vfader-wrap.smooth .vfader-thumb {
+      transition: height 0.5s linear, bottom 0.5s linear;
+    }
+    .vfader-thumb {
+      position: absolute;
+      left: 2px;
+      right: 2px;
+      height: 10px;
+      background: linear-gradient(180deg, #ddd 0%, #999 100%);
+      border-radius: 2px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.6);
+      pointer-events: none;
+    }
+    .vfader-val {
+      font-family: var(--mono);
+      font-size: 0.55rem;
+      font-weight: 600;
+      color: var(--muted);
+      line-height: 1;
+    }
+    .vfader-wrap.rgb .vfader-fill {
+      background: var(--fader-color, var(--accent));
+    }
+    .ch-strip.has-override .ch-label {
+      color: var(--accent);
+    }
+    .ch-strip.active-scene .ch-label {
+      color: var(--accent);
+    }
+    .ch-strip.inactive {
+      opacity: 0.55;
+    }
+    .ch-strip.inactive .ch-label {
+      color: var(--muted);
+    }
+    .ch-strip.inactive .vfader-wrap {
+      border-color: #1e1e1e;
+    }
+    .ch-vals {
+      display: flex;
+      gap: 2px;
+      font-family: var(--mono);
+      font-size: 0.5rem;
+      font-weight: 600;
+      color: var(--muted);
+      line-height: 1;
+    }
+
+    /* Channel label */
+    .ch-label {
+      font-family: var(--mono);
+      font-size: 0.5rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.15;
+      max-width: 40px;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      cursor: pointer;
+      padding: 2px;
+      border-radius: 2px;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .ch-label:active {
+      background: var(--accent-dim);
+    }
+
+    /* ── Color picker popover ──────────────────────────────────── */
+    #color-popover {
+      display: none;
+      position: fixed;
+      z-index: 200;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.7);
+      min-width: 200px;
+    }
+    #color-popover.visible { display: block; }
+    #color-popover h3 {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      font-weight: 600;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 10px;
+    }
+    .pop-swatches {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .pop-swatch {
+      width: 100%;
+      aspect-ratio: 1;
+      border-radius: 4px;
+      border: 2px solid var(--border);
+      cursor: pointer;
+      transition: border-color 0.1s;
+    }
+    .pop-swatch:active { border-color: var(--accent); }
+    .pop-slider-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+    .pop-slider-row label {
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      font-weight: 600;
+      color: var(--muted);
+      width: 14px;
+    }
+    .pop-slider-row input[type=range] {
+      flex: 1;
+      height: 24px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+    }
+    .pop-slider-row input[type=range]::-webkit-slider-runnable-track {
+      height: 4px;
+      background: var(--groove);
+      border-radius: 2px;
+      border: 1px solid var(--border);
+    }
+    .pop-slider-row input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px; height: 18px;
+      border-radius: 3px;
+      border: 1px solid var(--border);
+      margin-top: -8px;
+      cursor: pointer;
+    }
+    .pop-slider-row input.sl-r::-webkit-slider-thumb { background: #e74c3c; }
+    .pop-slider-row input.sl-g::-webkit-slider-thumb { background: #2ecc71; }
+    .pop-slider-row input.sl-b::-webkit-slider-thumb { background: #3498db; }
+    .pop-slider-row input.sl-w::-webkit-slider-thumb { background: #ecf0f1; }
+    .pop-slider-row .sv {
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      color: var(--muted);
+      min-width: 24px;
+      text-align: right;
+    }
+    .pop-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .pop-actions button {
+      flex: 1;
+      padding: 6px 8px;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      background: var(--channel);
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      font-weight: 600;
+      cursor: pointer;
+      letter-spacing: 0.05em;
+    }
+    .pop-actions button:active { background: var(--border); }
+
+    /* ══════════════════════════════════════════════════════════════════
+       SCENE BANK — scrollable grid of recall buttons
+       ══════════════════════════════════════════════════════════════════ */
+    #scene-bank {
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 10px 12px;
+      background: var(--bg);
+    }
+    #scene-bank::-webkit-scrollbar { width: 4px; }
+    #scene-bank::-webkit-scrollbar-track { background: transparent; }
+    #scene-bank::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 2px;
+    }
+    #scene-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+      gap: 6px;
+    }
+    .scene-btn {
+      position: relative;
+      height: 44px;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 2px 4px;
+      cursor: pointer;
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      line-height: 1.15;
+      word-break: break-word;
+      user-select: none;
+      -webkit-user-select: none;
+      overflow: hidden;
+    }
+    .scene-btn:active {
+      transform: scale(0.96);
+    }
+    .scene-btn.active {
+      border: 3px solid var(--accent);
+      box-shadow: 0 0 16px rgba(232,160,32,0.6), 0 0 4px rgba(232,160,32,0.8);
+      z-index: 1;
+      transform: scale(1.05);
+    }
+    .scene-btn.fading {
+      animation: pulse-fade 0.6s ease-in-out infinite;
+    }
+    @keyframes pulse-fade {
+      0%, 100% { box-shadow: 0 0 10px rgba(232,160,32,0.3); }
+      50%      { box-shadow: 0 0 18px rgba(232,160,32,0.65); }
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       SETTINGS PANEL
+       ══════════════════════════════════════════════════════════════════ */
+    #settings-panel {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 400;
+      background: rgba(0,0,0,0.85);
+      align-items: center;
+      justify-content: center;
+    }
+    #settings-panel.visible { display: flex; }
+    .settings-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 24px;
+      width: 90%;
+      max-width: 400px;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    .settings-box h2 {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      margin-bottom: 16px;
+    }
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .setting-row label {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .setting-row select {
+      padding: 6px 8px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: var(--groove);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      min-width: 160px;
+    }
+    .hist-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 8px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      margin-bottom: 4px;
+      font-family: var(--mono);
+      font-size: 0.6rem;
+    }
+    .hist-item.active-upload {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+    }
+    .hist-info { flex: 1; min-width: 0; }
+    .hist-name { color: var(--text); font-weight: 600; }
+    .hist-meta { color: var(--muted); font-size: 0.5rem; }
+    .hist-btn {
+      padding: 3px 8px;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      background: var(--channel);
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.55rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .hist-btn:active { background: var(--border); }
+    .hist-btn.danger { color: var(--danger); border-color: var(--danger); }
+    .diff-added { color: #2ecc71; }
+    .diff-removed { color: #e74c3c; }
+    .diff-changed { color: var(--accent); }
+    .diff-section { color: var(--text); font-weight: 600; margin-top: 6px; }
+    .luminair-file-input {
+      flex: 1;
+      min-width: 0;
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      color: var(--muted);
+      background: var(--groove);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 6px 8px;
+    }
+    .luminair-file-input::file-selector-button {
+      background: var(--accent);
+      color: #0a0a0a;
+      border: none;
+      border-radius: 3px;
+      padding: 4px 12px;
+      font-family: var(--mono);
+      font-weight: 600;
+      font-size: 0.6rem;
+      letter-spacing: 0.05em;
+      cursor: pointer;
+      margin-right: 8px;
+    }
+    #settings-btn.uploading {
+      animation: upload-pulse 1s ease infinite;
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    @keyframes upload-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    .upload-progress {
+      width: 100%;
+      height: 4px;
+      background: var(--groove);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 4px;
+      display: none;
+    }
+    .upload-progress.active { display: block; }
+    .upload-progress-bar {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      transition: width 0.2s linear;
+      width: 0%;
+    }
+    .settings-close {
+      display: block;
+      width: 100%;
+      margin-top: 16px;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: var(--channel);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      letter-spacing: 0.08em;
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       SCENE CONTEXT MENU
+       ══════════════════════════════════════════════════════════════════ */
+    #scene-ctx {
+      display: none;
+      position: fixed;
+      z-index: 300;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px 14px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.8);
+      min-width: 180px;
+    }
+    #scene-ctx.visible { display: block; }
+    #scene-ctx h3 {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      font-weight: 600;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 10px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .ctx-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .ctx-row label {
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      white-space: nowrap;
+    }
+    .ctx-row input[type=number] {
+      display: none;
+    }
+    .ctx-spinner {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .ctx-spinner button {
+      width: 32px;
+      height: 32px;
+      border: none;
+      background: var(--channel);
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .ctx-spinner button:active {
+      background: var(--border);
+      color: var(--text);
+    }
+    .ctx-spinner .spin-val {
+      min-width: 50px;
+      padding: 6px 4px;
+      background: var(--groove);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-align: center;
+      border-left: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+    }
+    .ctx-row span {
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      color: var(--muted);
+    }
+    .ctx-presets {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+    .ctx-preset {
+      padding: 6px 12px;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      background: var(--channel);
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .ctx-preset:active { background: var(--border); }
+    .ctx-preset.active { border-color: var(--accent); color: var(--accent); }
+    .ctx-fixtures {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px;
+      max-height: 80px;
+      overflow-y: auto;
+    }
+    .ctx-fix-chip {
+      padding: 3px 6px;
+      border-radius: 3px;
+      font-family: var(--mono);
+      font-size: 0.5rem;
+      font-weight: 600;
+      background: var(--groove);
+      color: var(--muted);
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      border: 1px solid transparent;
+    }
+    .ctx-fix-chip:active { opacity: 0.7; }
+    .ctx-fix-chip.on {
+      background: var(--accent-dim);
+      color: var(--accent);
+      border-color: rgba(232,160,32,0.3);
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       BACKDROP OVERLAY — dismiss color popover / context menu
+       ══════════════════════════════════════════════════════════════════ */
+    #backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 150;
+    }
+    #backdrop.visible { display: block; }
+
+    /* ══════════════════════════════════════════════════════════════════
+       RESPONSIVE — narrower screens stack tighter
+       ══════════════════════════════════════════════════════════════════ */
+    @media (max-width: 800px) {
+      :root { --fader-w: 30px; --fader-h: clamp(80px, 18vh, 140px); }
+      .vfader-wrap { width: 22px; }
+      .ch-label { font-size: 0.45rem; max-width: 32px; }
+      #scene-grid { grid-template-columns: repeat(auto-fill, minmax(68px, 1fr)); }
+      .scene-btn { height: 38px; font-size: 0.55rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ═══ HEADER ═══ -->
+  <div id="header">
+    <h1>LTG</h1>
+    <div class="hdr-slider-section">
+      <label>Mstr</label>
+      <input type="range" id="master-slider" min="0" max="255" value="255">
+      <span id="master-val">255</span>
+      <button class="fx-btn" id="master-fade-btn" onclick="toggleMasterFade()">FO</button>
+    </div>
+    <button class="fx-btn" id="haze-btn" onclick="toggleHaze()">HAZE</button>
+    <div class="hdr-slider-section strobe-section">
+      <button class="fx-btn" id="strobe-btn" onclick="toggleStrobe()">STROBE</button>
+      <input type="range" id="strobe-slider" min="10" max="255" value="128"
+        oninput="strobeSpeedChanged(this.value)" class="strobe-slider" disabled>
+    </div>
+    <div id="active-scene-indicator"></div>
+    <button class="fx-btn" id="settings-btn" onclick="toggleSettings()" title="Settings">&#9881;</button>
+    <div class="status-led" id="status-led"></div>
+  </div>
+
+  <!-- ═══ FADER STRIP ═══ -->
+  <div id="fader-strip"></div>
+
+  <!-- ═══ SCENE BANK ═══ -->
+  <div id="scene-bank">
+    <div id="scene-grid"></div>
+  </div>
+
+</div>
+
+<!-- Settings panel -->
+<div id="settings-panel" onclick="if(event.target===this&&!uploading)toggleSettings()">
+  <div class="settings-box">
+    <h2>Settings</h2>
+    <div class="setting-row">
+      <label>Default scene</label>
+      <select id="default-scene-select" onchange="saveDefaultScene(this.value)">
+        <option value="">None (dark)</option>
+      </select>
+    </div>
+    <div class="setting-row">
+      <label>Master fade time</label>
+      <div class="ctx-spinner">
+        <button onclick="adjMasterFadeTime(-0.5)">−</button>
+        <div class="spin-val" id="master-fade-time-val">2.0</div>
+        <button onclick="adjMasterFadeTime(0.5)">+</button>
+      </div>
+      <span style="font-family:var(--mono);font-size:0.6rem;color:var(--muted)">sec</span>
+    </div>
+    <div class="setting-row" style="flex-direction:column;align-items:stretch;gap:8px">
+      <label>Luminair file</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="file" id="luminair-file" accept=".luminair" class="luminair-file-input">
+        <button class="fx-btn" onclick="uploadLuminair()" id="upload-btn">UPLOAD</button>
+      </div>
+      <div class="upload-progress" id="upload-progress"><div class="upload-progress-bar" id="upload-progress-bar"></div></div>
+      <div id="upload-status" style="font-family:var(--mono);font-size:0.65rem;color:var(--muted);min-height:1.2em"></div>
+    </div>
+    <div class="setting-row" style="flex-direction:column;align-items:stretch;gap:8px;margin-top:8px">
+      <label>Upload history</label>
+      <div id="upload-history" style="max-height:160px;overflow-y:auto"></div>
+      <div style="display:flex;gap:6px">
+        <select id="diff-a" style="flex:1;font-family:var(--mono);font-size:0.6rem;background:var(--groove);color:var(--text);border:1px solid var(--border);border-radius:3px;padding:4px"></select>
+        <span style="color:var(--muted);font-size:0.7rem;align-self:center">vs</span>
+        <select id="diff-b" style="flex:1;font-family:var(--mono);font-size:0.6rem;background:var(--groove);color:var(--text);border:1px solid var(--border);border-radius:3px;padding:4px"></select>
+        <button class="fx-btn" onclick="showDiff()">DIFF</button>
+      </div>
+      <div id="diff-result" style="font-family:var(--mono);font-size:0.6rem;color:var(--text);max-height:200px;overflow-y:auto;display:none;background:var(--groove);border:1px solid var(--border);border-radius:4px;padding:8px;white-space:pre-wrap"></div>
+    </div>
+    <button class="settings-close" onclick="toggleSettings()">CLOSE</button>
+  </div>
+</div>
+
+<!-- Backdrop (dismisses any open popover/context menu) -->
+<div id="backdrop" onclick="closeAll()"></div>
+
+<!-- Scene context menu -->
+<div id="scene-ctx">
+  <h3 id="ctx-scene-name">—</h3>
+  <div class="ctx-row">
+    <label>Fade</label>
+    <input type="number" id="ctx-fade" min="0" max="30" step="0.5" value="2.0">
+    <div class="ctx-spinner">
+      <button onclick="ctxSpin(-0.5)">−</button>
+      <div class="spin-val" id="ctx-fade-display">2.0</div>
+      <button onclick="ctxSpin(0.5)">+</button>
+    </div>
+    <span>sec</span>
+  </div>
+  <div class="ctx-presets">
+    <div class="ctx-preset" onclick="ctxSetFade(0)">0s</div>
+    <div class="ctx-preset" onclick="ctxSetFade(0.5)">0.5</div>
+    <div class="ctx-preset" onclick="ctxSetFade(1)">1s</div>
+    <div class="ctx-preset" onclick="ctxSetFade(2)">2s</div>
+    <div class="ctx-preset" onclick="ctxSetFade(4)">4s</div>
+    <div class="ctx-preset" onclick="ctxSetFade(6)">6s</div>
+    <div class="ctx-preset" onclick="ctxSetFade(10)">10s</div>
+  </div>
+  <div class="ctx-row" style="margin-top:4px">
+    <label>Controls</label>
+  </div>
+  <div class="ctx-fixtures" id="ctx-fixtures"></div>
+  <div class="pop-actions" style="margin-top:10px">
+    <button onclick="ctxCopy()">COPY</button>
+    <button onclick="ctxDelete()" style="color:var(--danger);border-color:var(--danger)">DELETE</button>
+  </div>
+</div>
+
+<!-- Color picker popover (shared, repositioned per fixture) -->
+<div id="color-popover">
+  <h3 id="pop-title">—</h3>
+  <div class="pop-swatches" id="pop-swatches"></div>
+  <div id="pop-sliders"></div>
+  <div class="pop-actions">
+    <button onclick="popClear()">CLEAR</button>
+    <button onclick="closePopover()">CLOSE</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* ─── Constants ─────────────────────────────────────────────────────────── */
+const POLL_MS    = 500;
+const THROTTLE_MS = 80;
+
+let state = {};
+let scenes = [];
+let fixtures = [];
+let popFixture = null;   // fixture currently open in popover
+let lastThrottle = {};   // per-endpoint throttle timestamps
+let faderTouching = {};  // track active touches on faders
+let faderCooldown = {};  // timestamp when touch ended — ignore poll updates briefly
+
+const PRESETS = [
+  { n:'Red',    r:255, g:0,   b:0   },
+  { n:'Blue',   r:0,   g:0,   b:255 },
+  { n:'Green',  r:0,   g:255, b:0   },
+  { n:'Amber',  r:255, g:140, b:0   },
+  { n:'White',  r:255, g:255, b:255 },
+  { n:'Purple', r:160, g:0,   b:255 },
+  { n:'Cyan',   r:0,   g:255, b:255 },
+  { n:'Off',    r:0,   g:0,   b:0   },
+];
+
+/* ─── API helper ────────────────────────────────────────────────────────── */
+async function api(path, opts={}) {
+  try {
+    const resp = await fetch(path, opts);
+    if (resp.status === 401) { location.href = '/login'; return null; }
+    return resp;
+  } catch(_) { return null; }
+}
+
+function throttledPost(key, url, body) {
+  const now = Date.now();
+  if (lastThrottle[key] && now - lastThrottle[key] < THROTTLE_MS) return;
+  lastThrottle[key] = now;
+  api(url, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(body)
+  });
+}
+
+/* ─── Init ──────────────────────────────────────────────────────────────── */
+async function init() {
+  const [sResp, fResp] = await Promise.all([api('/api/scenes'), api('/api/fixtures')]);
+  if (sResp && sResp.ok) { scenes = await sResp.json(); renderScenes(); }
+  if (fResp && fResp.ok) { fixtures = await fResp.json(); renderFaders(); }
+  poll();
+  setInterval(poll, POLL_MS);
+}
+init();
+
+/* ─── Polling ───────────────────────────────────────────────────────────── */
+async function poll() {
+  const resp = await api('/api/state');
+  if (!resp || !resp.ok) { setLed(false); return; }
+  state = await resp.json();
+  setLed(true);
+  updateUI();
+}
+
+function setLed(ok) {
+  document.getElementById('status-led').classList.toggle('off', !ok);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FADER STRIP
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function renderFaders() {
+  const strip = document.getElementById('fader-strip');
+  strip.innerHTML = '';
+
+  const mainPars = fixtures.filter(f => f.group === 'slimpar' && !f.name.startsWith('Bar'));
+  const triangle = fixtures.filter(f => f.group === 'triangle');
+  const droid    = fixtures.filter(f => f.group === 'droid');
+  const haze     = fixtures.filter(f => f.group === 'haze');
+  const bars     = fixtures.filter(f => f.group === 'slimpar' && f.name.startsWith('Bar'));
+
+  const groups = [mainPars, triangle, droid, haze, bars];
+  groups.forEach((grp, gi) => {
+    if (gi > 0 && grp.length > 0) {
+      const sep = document.createElement('div');
+      sep.className = 'group-sep';
+      strip.appendChild(sep);
+    }
+    grp.forEach(f => strip.appendChild(buildChannel(f)));
+  });
+}
+
+// Determine what faders a fixture needs
+function fixHasRGB(f) { return f.channels.includes('Red'); }
+function fixHasWhite(f) { return f.channels.includes('White'); }
+function fixIntensityName(f) {
+  if (f.channels.includes('Intensity')) return 'Intensity';
+  if (f.channels.includes('Dim')) return 'Dim';
+  if (f.channels.includes('Level')) return 'Level';
+  return null;
+}
+
+function buildChannel(f) {
+  const hasRGB = fixHasRGB(f);
+  const hasW = fixHasWhite(f);
+  const hasColour = hasRGB || hasW;  // anything with colour control gets a dot
+
+  const el = document.createElement('div');
+  el.className = 'ch-strip dot-single';
+  el.id = 'ch-' + f.id;
+
+  // Colour dot for fixtures with RGB or White — tap to open popover
+  // Fixtures without colour get an invisible spacer to keep alignment
+  if (hasColour) {
+    const dot = document.createElement('div');
+    dot.className = 'color-dot';
+    dot.id = 'cdot-' + f.id;
+    dot.style.background = 'var(--muted)';
+    dot.onclick = (e) => openPopover(f, e);
+    el.appendChild(dot);
+  } else {
+    const spacer = document.createElement('div');
+    spacer.className = 'color-dot';
+    spacer.style.visibility = 'hidden';
+    el.appendChild(spacer);
+  }
+
+  // Value label
+  const vals = document.createElement('div');
+  vals.className = 'ch-vals';
+  const intVal = document.createElement('span');
+  intVal.id = 'fv-int-' + f.id;
+  intVal.textContent = '0';
+  vals.appendChild(intVal);
+
+  // Single intensity fader
+  const pair = document.createElement('div');
+  pair.className = 'fader-pair';
+
+  const intWrap = makeFader(f.id, 'int', (val) => {
+    throttledPost('int-' + f.id, '/api/fixture/' + f.id + '/color', { intensity: val });
+  });
+  intWrap.classList.add('int');
+  pair.appendChild(intWrap);
+
+  // Label
+  let label = f.name
+    .replace(/^N?\s*\d+\s*N?\s*/, '')
+    .replace(/^N\s+/, '')
+    .trim();
+  if (!label) label = f.name;
+  if (label.length > 8) label = label.substring(0, 7) + '…';
+
+  const labelEl = document.createElement('div');
+  labelEl.className = 'ch-label';
+  labelEl.textContent = label;
+  labelEl.title = f.name + ' (' + f.model + ')';
+
+  // Tap label to open colour popover for RGB/W fixtures
+  if (hasRGB || hasW) {
+    labelEl.onclick = (e) => openPopover(f, e);
+  }
+
+  el.appendChild(vals);
+  el.appendChild(pair);
+  el.appendChild(labelEl);
+  return el;
+}
+
+function makeFader(fid, suffix, onChange) {
+  const wrap = document.createElement('div');
+  wrap.className = 'vfader-wrap';
+  wrap.id = 'fw-' + suffix + '-' + fid;
+
+  const fill = document.createElement('div');
+  fill.className = 'vfader-fill';
+  fill.id = 'ff-' + suffix + '-' + fid;
+
+  const thumb = document.createElement('div');
+  thumb.className = 'vfader-thumb';
+  thumb.id = 'ft-' + suffix + '-' + fid;
+
+  wrap.appendChild(fill);
+  wrap.appendChild(thumb);
+
+  const touchKey = suffix + '-' + fid;
+
+  const setFromY = (clientY) => {
+    const rect = wrap.getBoundingClientRect();
+    const pct = 1 - Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
+    const val = Math.round(pct * 255);
+    setFaderVisual(fid, suffix, val);
+    onChange(val);
+  };
+
+  wrap.addEventListener('pointerdown', (e) => {
+    // touch-action: pan-x means the browser only fires pointer events
+    // if the gesture is vertical. Horizontal swipes become native scroll.
+    wrap.setPointerCapture(e.pointerId);
+    faderTouching[touchKey] = true;
+    wrap.classList.remove('smooth');
+    setFromY(e.clientY);
+  });
+  wrap.addEventListener('pointermove', (e) => {
+    if (!faderTouching[touchKey]) return;
+    setFromY(e.clientY);
+  });
+  wrap.addEventListener('pointerup', () => {
+    faderTouching[touchKey] = false;
+    faderCooldown[touchKey] = Date.now();
+  });
+  wrap.addEventListener('pointercancel', () => {
+    faderTouching[touchKey] = false;
+    faderCooldown[touchKey] = Date.now();
+  });
+
+  return wrap;
+}
+
+function setFaderVisual(fid, suffix, val, color) {
+  const pct = (val / 255 * 100).toFixed(1);
+  const fill = document.getElementById('ff-' + suffix + '-' + fid);
+  const thumb = document.getElementById('ft-' + suffix + '-' + fid);
+  const valEl = document.getElementById('fv-' + suffix + '-' + fid);
+  if (fill) {
+    fill.style.height = pct + '%';
+    if (color) fill.style.background = color;
+  }
+  if (thumb) thumb.style.bottom = 'calc(' + pct + '% - 5px)';
+  if (valEl) valEl.textContent = val;
+}
+
+const COOLDOWN_MS = 2000;
+
+function isFaderLocked(key) {
+  if (faderTouching[key]) return true;
+  if (faderCooldown[key] && Date.now() - faderCooldown[key] < COOLDOWN_MS) return true;
+  return false;
+}
+
+// Sync faders from polled state.levels
+function syncFaders() {
+  if (!state.levels) return;
+  fixtures.forEach(f => {
+    const levels = state.levels[f.id];
+    if (!levels) return;
+
+    const hasRGB = fixHasRGB(f);
+    const hasW = fixHasWhite(f);
+    const intName = fixIntensityName(f);
+
+    if (!isFaderLocked('int-' + f.id)) {
+      const intWrap = document.getElementById('fw-int-' + f.id);
+      if (intWrap) intWrap.classList.add('smooth');
+      const intVal = levels[intName] || 0;
+      setFaderVisual(f.id, 'int', intVal);
+    }
+
+    // Update colour dot for fixtures with RGB or White
+    const dot = document.getElementById('cdot-' + f.id);
+    if (dot) {
+      const r = levels.Red || 0, g = levels.Green || 0, b = levels.Blue || 0;
+      const w = levels.White || 0;
+      if (hasRGB) {
+        const mx = Math.max(r, g, b);
+        dot.style.background = mx > 0 ? 'rgb(' + r + ',' + g + ',' + b + ')' : 'var(--muted)';
+      } else if (hasW) {
+        dot.style.background = w > 0 ? 'rgb(' + w + ',' + w + ',' + w + ')' : 'var(--muted)';
+      }
+    }
+
+    // Highlight: active scene controls vs inactive, and manual overrides
+    const strip = document.getElementById('ch-' + f.id);
+    if (strip) {
+      const hasOv = state.overrides && state.overrides[f.id];
+      strip.classList.toggle('has-override', !!hasOv);
+      const activeScene = scenes.find(s => s.id === state.active_scene_id);
+      const controlled = activeScene && activeScene.fixtures && activeScene.fixtures.includes(f.id);
+      strip.classList.toggle('inactive', !controlled && !hasOv);
+      strip.classList.toggle('active-scene', !!controlled);
+    }
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   COLOR POPOVER
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function openPopover(fix, evt) {
+  popFixture = fix;
+  const pop = document.getElementById('color-popover');
+  document.getElementById('pop-title').textContent = fix.name;
+
+  // Swatches
+  const sw = document.getElementById('pop-swatches');
+  sw.innerHTML = '';
+  PRESETS.forEach(p => {
+    const d = document.createElement('div');
+    d.className = 'pop-swatch';
+    d.style.background = p.n === 'Off' ? 'var(--groove)' : 'rgb('+p.r+','+p.g+','+p.b+')';
+    if (p.n === 'Off') d.style.border = '2px dashed var(--muted)';
+    d.onclick = () => applyPreset(fix.id, p.r, p.g, p.b);
+    sw.appendChild(d);
+  });
+
+  // Sliders
+  const sl = document.getElementById('pop-sliders');
+  sl.innerHTML = '';
+  const chs = [
+    {l:'R', cls:'sl-r', param:'r', show: fix.channels.includes('Red')},
+    {l:'G', cls:'sl-g', param:'g', show: fix.channels.includes('Green')},
+    {l:'B', cls:'sl-b', param:'b', show: fix.channels.includes('Blue')},
+    {l:'W', cls:'sl-w', param:'w', show: fix.channels.includes('White')},
+  ];
+  chs.forEach(c => {
+    if (!c.show) return;
+    const row = document.createElement('div');
+    row.className = 'pop-slider-row';
+    row.innerHTML =
+      '<label>' + c.l + '</label>' +
+      '<input type="range" class="' + c.cls + '" min="0" max="255" value="0" ' +
+        'id="psl-' + c.param + '" oninput="popSlider(\'' + c.param + '\',this.value)">' +
+      '<span class="sv" id="psv-' + c.param + '">0</span>';
+    sl.appendChild(row);
+  });
+
+  // Pre-fill sliders from current levels
+  const levels = state.levels && state.levels[fix.id];
+  if (levels) {
+    const map = {r:'Red', g:'Green', b:'Blue', w:'White'};
+    Object.entries(map).forEach(([param, chName]) => {
+      const v = levels[chName] || 0;
+      const slEl = document.getElementById('psl-' + param);
+      const svEl = document.getElementById('psv-' + param);
+      if (slEl) slEl.value = v;
+      if (svEl) svEl.textContent = v;
+    });
+  }
+
+  // Position below the tapped element, clamped to viewport
+  const rect = evt.target.getBoundingClientRect();
+  const popW = 220, popH = 280;
+  let left = rect.left;
+  let top = rect.bottom + 6;
+  if (left + popW > window.innerWidth) left = window.innerWidth - popW - 8;
+  if (left < 8) left = 8;
+  if (top + popH > window.innerHeight) top = rect.top - popH - 6;
+  if (top < 8) top = 8;
+  pop.style.left = left + 'px';
+  pop.style.top = top + 'px';
+  pop.style.bottom = 'auto';
+
+  document.getElementById('backdrop').classList.add('visible');
+  pop.classList.add('visible');
+}
+
+function closeAll() {
+  closePopover();
+  closeSceneCtx();
+  document.getElementById('backdrop').classList.remove('visible');
+}
+
+function closePopover() {
+  document.getElementById('color-popover').classList.remove('visible');
+  if (!document.getElementById('scene-ctx').classList.contains('visible')) {
+    document.getElementById('backdrop').classList.remove('visible');
+  }
+  popFixture = null;
+}
+
+function popSlider(param, val) {
+  val = parseInt(val);
+  const sv = document.getElementById('psv-' + param);
+  if (sv) sv.textContent = val;
+  if (popFixture) {
+    throttledPost('pop-' + popFixture.id, '/api/fixture/' + popFixture.id + '/color', { [param]: val });
+  }
+}
+
+function applyPreset(fid, r, g, b) {
+  const body = { r, g, b, intensity: (r||g||b) ? 255 : 0 };
+  throttledPost('preset-' + fid, '/api/fixture/' + fid + '/color', body);
+  // Update popover sliders
+  ['r','g','b'].forEach((p,i) => {
+    const v = [r,g,b][i];
+    const sl = document.getElementById('psl-' + p);
+    const sv = document.getElementById('psv-' + p);
+    if (sl) sl.value = v;
+    if (sv) sv.textContent = v;
+  });
+}
+
+function popClear() {
+  if (popFixture) {
+    api('/api/fixture/' + popFixture.id + '/clear', {
+      method:'POST', headers:{'Content-Type':'application/json'}
+    });
+  }
+  closePopover();
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SCENE BANK
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+// Scenes handled by top-bar FX buttons — hidden from the grid
+const HIDDEN_SCENE_PATTERNS = [
+  /^Haze/i,
+  /^S\s/,       // "S Slow", "S Fast", etc. but not "Setup"
+];
+
+function isSceneHidden(name) {
+  const trimmed = name.trim();
+  return HIDDEN_SCENE_PATTERNS.some(re => re.test(trimmed));
+}
+
+function renderScenes() {
+  const grid = document.getElementById('scene-grid');
+  grid.innerHTML = '';
+  scenes.filter(s => !isSceneHidden(s.name)).forEach(s => {
+    const btn = document.createElement('div');
+    btn.className = 'scene-btn';
+    btn.dataset.id = s.id;
+    btn.style.background = s.button_color;
+    btn.style.color = isLight(s.button_color) ? '#0a0a0a' : 'rgba(255,255,255,0.9)';
+    btn.textContent = s.name;
+    btn.onclick = () => {
+      if (btn._longPressed) { btn._longPressed = false; return; }
+      recallScene(s.id);
+    };
+    attachSceneContextEvents(btn, s.id);
+    grid.appendChild(btn);
+  });
+}
+
+function isLight(rgba) {
+  const m = rgba.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+  if (!m) return false;
+  return (parseInt(m[1])*299 + parseInt(m[2])*587 + parseInt(m[3])*114) / 1000 > 128;
+}
+
+async function recallScene(id) {
+  state.active_scene_id = id;
+  state.fading = true;
+  const s = scenes.find(x => x.id === id);
+  if (s) state.active_scene_name = s.name;
+  updateSceneButtons();
+  updateSceneIndicator();
+  api('/api/scene/' + id + '/recall', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ fade: s ? s.fade_in : undefined })
+  });
+}
+
+function updateSceneButtons() {
+  document.querySelectorAll('.scene-btn').forEach(btn => {
+    const id = parseInt(btn.dataset.id);
+    const active = id === state.active_scene_id;
+    btn.classList.toggle('active', active);
+    btn.classList.toggle('fading', active && state.fading);
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SCENE CONTEXT MENU (long-press / right-click)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+let ctxSceneId = null;
+let longPressTimer = null;
+
+function attachSceneContextEvents(btn, sceneId) {
+  // Right-click (desktop)
+  btn.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    openSceneCtx(sceneId, e.clientX, e.clientY);
+  });
+
+  // Long-press (touch) — 500ms hold
+  btn.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse') return; // mouse uses contextmenu
+    longPressTimer = setTimeout(() => {
+      longPressTimer = null;
+      openSceneCtx(sceneId, e.clientX, e.clientY);
+      btn._longPressed = true;
+    }, 500);
+  });
+  btn.addEventListener('pointermove', () => {
+    if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+  });
+  btn.addEventListener('pointerup', () => {
+    if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+    // Suppress the click if it was a long press
+    if (btn._longPressed) {
+      btn._longPressed = false;
+      return;
+    }
+  });
+  btn.addEventListener('pointercancel', () => {
+    if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+  });
+}
+
+function openSceneCtx(sceneId, x, y) {
+  ctxSceneId = sceneId;
+  const scene = scenes.find(s => s.id === sceneId);
+  if (!scene) return;
+
+  document.getElementById('ctx-scene-name').textContent = scene.name;
+  const fadeInput = document.getElementById('ctx-fade');
+  fadeInput.value = scene.fade_in;
+  const disp = document.getElementById('ctx-fade-display');
+  disp.textContent = scene.fade_in % 1 === 0 ? scene.fade_in + '.0' : scene.fade_in;
+
+  document.querySelectorAll('.ctx-preset').forEach(p => {
+    p.classList.toggle('active', parseFloat(p.textContent) === scene.fade_in);
+  });
+
+  // Show which fixtures this scene controls — tappable to toggle
+  const ctxFix = document.getElementById('ctx-fixtures');
+  ctxFix.innerHTML = '';
+  const controlled = new Set(scene.fixtures_nonzero || scene.fixtures || []);
+  fixtures.forEach(f => {
+    const chip = document.createElement('span');
+    const isOn = controlled.has(f.id);
+    chip.className = 'ctx-fix-chip' + (isOn ? ' on' : '');
+    let label = f.name.replace(/^N?\s*\d+\s*N?\s*/, '').replace(/^N\s+/, '').trim();
+    if (!label) label = f.name;
+    chip.textContent = label;
+    chip.title = f.name;
+    chip.onclick = () => {
+      chip.classList.toggle('on');
+      ctxSaveFixtures();
+    };
+    ctxFix.appendChild(chip);
+  });
+
+  const ctx = document.getElementById('scene-ctx');
+  // Position near click, but keep on screen
+  const ctxW = 200, ctxH = 140;
+  ctx.style.left = Math.min(x, window.innerWidth - ctxW - 8) + 'px';
+  ctx.style.top = Math.min(y, window.innerHeight - ctxH - 8) + 'px';
+
+  document.getElementById('backdrop').classList.add('visible');
+  ctx.classList.add('visible');
+
+  // Save on input change
+  fadeInput.onchange = () => {
+    const val = parseFloat(fadeInput.value);
+    if (!isNaN(val) && val >= 0) {
+      ctxSaveFade(val);
+    }
+  };
+}
+
+function ctxSpin(delta) {
+  const input = document.getElementById('ctx-fade');
+  let val = Math.max(0, Math.round((parseFloat(input.value) + delta) * 10) / 10);
+  ctxSetFade(val);
+}
+
+function ctxSetFade(val) {
+  val = Math.max(0, val);
+  document.getElementById('ctx-fade').value = val;
+  document.getElementById('ctx-fade-display').textContent = val % 1 === 0 ? val + '.0' : val;
+  ctxSaveFade(val);
+  document.querySelectorAll('.ctx-preset').forEach(p => {
+    p.classList.toggle('active', parseFloat(p.textContent) === val);
+  });
+}
+
+function ctxSaveFade(val) {
+  if (ctxSceneId === null) return;
+  // Update local scene data
+  const scene = scenes.find(s => s.id === ctxSceneId);
+  if (scene) scene.fade_in = val;
+  // Persist to server
+  api('/api/scene/' + ctxSceneId + '/fade', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ fade_in: val })
+  });
+}
+
+function ctxSaveFixtures() {
+  if (ctxSceneId === null) return;
+  // Read which chips are on
+  const chips = document.querySelectorAll('#ctx-fixtures .ctx-fix-chip');
+  const enabledIds = [];
+  chips.forEach((chip, i) => {
+    if (chip.classList.contains('on')) enabledIds.push(fixtures[i].id);
+  });
+  // Update local scene data
+  const scene = scenes.find(s => s.id === ctxSceneId);
+  if (scene) scene.fixtures = enabledIds;
+  // Save to server
+  api('/api/scene/' + ctxSceneId + '/fixtures', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ fixtures: enabledIds })
+  });
+}
+
+async function ctxCopy() {
+  if (ctxSceneId === null) return;
+  const scene = scenes.find(s => s.id === ctxSceneId);
+  const name = prompt('Name for the copy:', (scene ? scene.name : '') + ' copy');
+  if (!name) return;
+  const resp = await api('/api/scene/' + ctxSceneId + '/copy', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ name })
+  });
+  if (resp && resp.ok) {
+    closeSceneCtx();
+    await loadScenes();
+  }
+}
+
+async function ctxDelete() {
+  if (ctxSceneId === null) return;
+  const scene = scenes.find(s => s.id === ctxSceneId);
+  if (!confirm('Delete "' + (scene ? scene.name : '') + '"?')) return;
+  const resp = await api('/api/scene/' + ctxSceneId, { method: 'DELETE' });
+  if (resp && resp.ok) {
+    closeSceneCtx();
+    await loadScenes();
+  }
+}
+
+async function loadScenes() {
+  const resp = await api('/api/scenes');
+  if (resp && resp.ok) {
+    scenes = await resp.json();
+    renderScenes();
+  }
+}
+
+function closeSceneCtx() {
+  document.getElementById('scene-ctx').classList.remove('visible');
+  ctxSceneId = null;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MASTER / BLACKOUT
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const masterSlider = document.getElementById('master-slider');
+const masterVal    = document.getElementById('master-val');
+
+masterSlider.addEventListener('input', () => {
+  masterVal.textContent = masterSlider.value;
+  throttledPost('master', '/api/master', { value: parseInt(masterSlider.value) });
+});
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   UI UPDATE (from poll)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   HAZE / STROBE
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function toggleHaze() {
+  const on = !state.haze;
+  state.haze = on;
+  updateFxButtons();
+  api('/api/haze', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ on })
+  });
+}
+
+function toggleStrobe() {
+  const on = !state.strobe;
+  state.strobe = on;
+  updateFxButtons();
+  api('/api/strobe', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ on })
+  });
+}
+
+function strobeSpeedChanged(val) {
+  throttledPost('strobe-speed', '/api/strobe', { speed: parseInt(val) });
+}
+
+function updateFxButtons() {
+  document.getElementById('haze-btn').classList.toggle('active', !!state.haze);
+  const strobeOn = !!state.strobe;
+  document.getElementById('strobe-btn').classList.toggle('strobe-active', strobeOn);
+  const slider = document.getElementById('strobe-slider');
+  slider.disabled = !strobeOn;
+  if (state.strobe_speed != null && document.activeElement !== slider) {
+    slider.value = state.strobe_speed;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MASTER FADE
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+let masterFadeTime = 2.0;
+
+function toggleMasterFade() {
+  // If master is > 0, fade out. If 0, fade in.
+  const target = state.master > 0 ? 0 : 255;
+  const btn = document.getElementById('master-fade-btn');
+  btn.textContent = target === 0 ? 'FI' : 'FO';
+  api('/api/master/fade', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ target, duration: masterFadeTime })
+  });
+}
+
+function adjMasterFadeTime(delta) {
+  masterFadeTime = Math.max(0.5, Math.round((masterFadeTime + delta) * 10) / 10);
+  document.getElementById('master-fade-time-val').textContent =
+    masterFadeTime % 1 === 0 ? masterFadeTime + '.0' : masterFadeTime;
+  api('/api/settings', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ master_fade_time: masterFadeTime })
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SETTINGS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+async function toggleSettings() {
+  if (uploading) return;  // prevent closing during upload
+  const panel = document.getElementById('settings-panel');
+  const isOpen = panel.classList.toggle('visible');
+  if (isOpen) {
+    // Populate scene dropdown
+    const select = document.getElementById('default-scene-select');
+    select.innerHTML = '<option value="">None (dark)</option>';
+    scenes.forEach(s => {
+      if (isSceneHidden(s.name)) return;
+      const opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = s.name;
+      select.appendChild(opt);
+    });
+    // Load current setting
+    const resp = await api('/api/settings');
+    if (resp && resp.ok) {
+      const settings = await resp.json();
+      if (settings.default_scene != null) {
+        select.value = settings.default_scene;
+      }
+      if (settings.master_fade_time != null) {
+        masterFadeTime = settings.master_fade_time;
+        const el = document.getElementById('master-fade-time-val');
+        el.textContent = masterFadeTime % 1 === 0 ? masterFadeTime + '.0' : masterFadeTime;
+      }
+    }
+    loadHistory();
+  }
+}
+
+function saveDefaultScene(val) {
+  const sceneId = val === '' ? null : parseInt(val);
+  api('/api/settings', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ default_scene: sceneId })
+  });
+}
+
+let uploading = false;
+
+function uploadLuminair() {
+  const input = document.getElementById('luminair-file');
+  const status = document.getElementById('upload-status');
+  const progress = document.getElementById('upload-progress');
+  const progressBar = document.getElementById('upload-progress-bar');
+
+  if (!input.files || !input.files[0]) {
+    status.textContent = 'No file selected.';
+    status.style.color = 'var(--danger)';
+    return;
+  }
+  const file = input.files[0];
+  if (!file.name.toLowerCase().endsWith('.luminair')) {
+    status.textContent = 'Must be a .luminair file.';
+    status.style.color = 'var(--danger)';
+    return;
+  }
+
+  uploading = true;
+  status.textContent = 'Uploading...';
+  status.style.color = 'var(--accent)';
+  progress.classList.add('active');
+  progressBar.style.width = '0%';
+  document.getElementById('upload-btn').disabled = true;
+  document.getElementById('settings-btn').classList.add('uploading');
+
+  const form = new FormData();
+  form.append('file', file);
+
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', '/api/luminair/upload');
+
+  xhr.upload.onprogress = (e) => {
+    if (e.lengthComputable) {
+      const pct = Math.round(e.loaded / e.total * 100);
+      progressBar.style.width = pct + '%';
+      status.textContent = 'Uploading... ' + pct + '%';
+    }
+  };
+
+  xhr.onload = async () => {
+    uploading = false;
+    document.getElementById('upload-btn').disabled = false;
+    document.getElementById('settings-btn').classList.remove('uploading');
+
+    if (xhr.status === 200) {
+      const data = JSON.parse(xhr.responseText);
+      progressBar.style.width = '100%';
+      status.textContent = data.fixtures + ' fixtures, ' + data.scenes + ' scenes loaded.';
+      status.style.color = 'var(--ok)';
+      // Reload scenes and fixtures
+      const [sResp, fResp] = await Promise.all([api('/api/scenes'), api('/api/fixtures')]);
+      if (sResp && sResp.ok) { scenes = await sResp.json(); renderScenes(); }
+      if (fResp && fResp.ok) { fixtures = await fResp.json(); renderFaders(); }
+    } else {
+      status.textContent = 'Error: ' + xhr.responseText;
+      status.style.color = 'var(--danger)';
+    }
+    setTimeout(() => progress.classList.remove('active'), 2000);
+  };
+
+  xhr.onerror = () => {
+    uploading = false;
+    document.getElementById('upload-btn').disabled = false;
+    document.getElementById('settings-btn').classList.remove('uploading');
+    status.textContent = 'Connection failed.';
+    status.style.color = 'var(--danger)';
+    progress.classList.remove('active');
+  };
+
+  xhr.send(form);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   UPLOAD HISTORY & DIFF
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+async function loadHistory() {
+  const resp = await api('/api/luminair/history');
+  if (!resp || !resp.ok) return;
+  const uploads = await resp.json();
+  const container = document.getElementById('upload-history');
+  const diffA = document.getElementById('diff-a');
+  const diffB = document.getElementById('diff-b');
+
+  container.innerHTML = '';
+  diffA.innerHTML = '';
+  diffB.innerHTML = '';
+
+  uploads.forEach(u => {
+    const item = document.createElement('div');
+    item.className = 'hist-item' + (u.active ? ' active-upload' : '');
+    const date = u.uploaded_at ? u.uploaded_at.replace('T', ' ').substring(0, 16) : '?';
+    const size = (u.file_size / 1024 / 1024).toFixed(1) + 'MB';
+    item.innerHTML =
+      '<div class="hist-info">' +
+        '<div class="hist-name">' + u.original_name + (u.active ? ' ●' : '') + '</div>' +
+        '<div class="hist-meta">' + date + ' · ' + size + ' · ' + u.fixture_count + 'fix/' + u.scene_count + 'sc</div>' +
+      '</div>' +
+      (u.active ? '' : '<button class="hist-btn" onclick="activateUpload(' + u.id + ')">USE</button>') +
+      (u.active ? '' : '<button class="hist-btn danger" onclick="deleteUpload(' + u.id + ')">DEL</button>');
+    container.appendChild(item);
+
+    // Populate diff dropdowns
+    const optA = document.createElement('option');
+    optA.value = u.id;
+    optA.textContent = u.original_name + ' (' + date + ')';
+    diffA.appendChild(optA);
+    const optB = optA.cloneNode(true);
+    diffB.appendChild(optB);
+  });
+
+  // Default diff: oldest vs newest
+  if (uploads.length >= 2) {
+    diffA.value = uploads[uploads.length - 1].id;
+    diffB.value = uploads[0].id;
+  }
+}
+
+async function activateUpload(id) {
+  const resp = await api('/api/luminair/activate/' + id, { method: 'POST' });
+  if (resp && resp.ok) {
+    const [sResp, fResp] = await Promise.all([api('/api/scenes'), api('/api/fixtures')]);
+    if (sResp && sResp.ok) { scenes = await sResp.json(); renderScenes(); }
+    if (fResp && fResp.ok) { fixtures = await fResp.json(); renderFaders(); }
+    loadHistory();
+  }
+}
+
+async function deleteUpload(id) {
+  if (!confirm('Delete this upload?')) return;
+  await api('/api/luminair/delete/' + id, { method: 'DELETE' });
+  loadHistory();
+}
+
+async function showDiff() {
+  const idA = document.getElementById('diff-a').value;
+  const idB = document.getElementById('diff-b').value;
+  if (!idA || !idB || idA === idB) return;
+
+  const result = document.getElementById('diff-result');
+  result.style.display = 'block';
+  result.textContent = 'Computing...';
+
+  const resp = await api('/api/luminair/diff/' + idA + '/' + idB);
+  if (!resp || !resp.ok) {
+    result.textContent = 'Diff failed.';
+    return;
+  }
+  const diff = await resp.json();
+  let html = '<span class="diff-section">' + diff.file_a + ' → ' + diff.file_b + '</span>\n\n';
+
+  // Summary
+  const s = diff.summary;
+  html += 'Fixtures: ';
+  if (s.fixtures_added) html += '<span class="diff-added">+' + s.fixtures_added + '</span> ';
+  if (s.fixtures_removed) html += '<span class="diff-removed">-' + s.fixtures_removed + '</span> ';
+  if (s.fixtures_moved) html += '<span class="diff-changed">' + s.fixtures_moved + ' moved</span> ';
+  if (!s.fixtures_added && !s.fixtures_removed && !s.fixtures_moved) html += 'no changes';
+  html += '\nScenes: ';
+  if (s.scenes_added) html += '<span class="diff-added">+' + s.scenes_added + '</span> ';
+  if (s.scenes_removed) html += '<span class="diff-removed">-' + s.scenes_removed + '</span> ';
+  if (s.scenes_modified) html += '<span class="diff-changed">' + s.scenes_modified + ' modified</span> ';
+  html += s.scenes_unchanged + ' unchanged\n';
+
+  // Fixture changes
+  if (diff.fixtures.added.length) {
+    html += '\n<span class="diff-section">Fixtures added:</span>\n';
+    diff.fixtures.added.forEach(f => { html += '<span class="diff-added">  + ' + f.name + ' (' + f.model + ' @' + f.dmx + ')</span>\n'; });
+  }
+  if (diff.fixtures.removed.length) {
+    html += '\n<span class="diff-section">Fixtures removed:</span>\n';
+    diff.fixtures.removed.forEach(f => { html += '<span class="diff-removed">  - ' + f.name + '</span>\n'; });
+  }
+  if (diff.fixtures.moved.length) {
+    html += '\n<span class="diff-section">Fixtures moved:</span>\n';
+    diff.fixtures.moved.forEach(f => { html += '<span class="diff-changed">  ' + f.name + ': DMX ' + f.from + ' → ' + f.to + '</span>\n'; });
+  }
+
+  // Scene changes
+  if (diff.scenes.added.length) {
+    html += '\n<span class="diff-section">Scenes added:</span>\n';
+    diff.scenes.added.forEach(s => { html += '<span class="diff-added">  + ' + s.name + '</span>\n'; });
+  }
+  if (diff.scenes.removed.length) {
+    html += '\n<span class="diff-section">Scenes removed:</span>\n';
+    diff.scenes.removed.forEach(s => { html += '<span class="diff-removed">  - ' + s.name + '</span>\n'; });
+  }
+  if (diff.scenes.modified.length) {
+    html += '\n<span class="diff-section">Scenes modified:</span>\n';
+    diff.scenes.modified.forEach(s => {
+      html += '<span class="diff-changed">  ' + s.name + ':</span>\n';
+      s.changes.forEach(c => { html += '    ' + c + '\n'; });
+    });
+  }
+
+  result.innerHTML = html;
+}
+
+function updateUI() {
+  if (document.activeElement !== masterSlider) {
+    masterSlider.value = state.master;
+    masterVal.textContent = state.master;
+  }
+  updateSceneButtons();
+  updateSceneIndicator();
+  updateFxButtons();
+  // Update master fade button label
+  const fadeBtn = document.getElementById('master-fade-btn');
+  fadeBtn.textContent = state.master > 0 ? 'FO' : 'FI';
+  fadeBtn.classList.toggle('active', !!state.master_fading);
+  syncFaders();
+}
+
+function updateSceneIndicator() {
+  const el = document.getElementById('active-scene-indicator');
+  const s = scenes.find(x => x.id === state.active_scene_id);
+  if (s) {
+    el.textContent = s.name;
+    el.style.background = s.button_color;
+    el.style.color = isLight(s.button_color) ? '#0a0a0a' : 'rgba(255,255,255,0.9)';
+    el.classList.add('visible');
+  } else {
+    el.classList.remove('visible');
+  }
+}
+</script>
+</body>
+</html>

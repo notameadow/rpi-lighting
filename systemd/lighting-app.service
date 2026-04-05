@@ -1,0 +1,22 @@
+[Unit]
+Description=RPi Lighting — Art-Net controller
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=dev
+Group=dev
+WorkingDirectory=/home/dev/lighting
+ExecStart=/home/dev/lighting/venv/bin/python server.py
+Restart=always
+RestartSec=5
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lighting-app
+
+[Install]
+WantedBy=multi-user.target
