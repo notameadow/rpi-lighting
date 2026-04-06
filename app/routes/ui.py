@@ -13,6 +13,15 @@ def controller():
     return resp
 
 
+@ui_bp.route('/logo')
+def logo():
+    custom = os.path.join(os.path.dirname(os.path.dirname(__file__)), '..', 'data', 'logo.png')
+    if os.path.exists(custom):
+        return send_file(custom, mimetype='image/png')
+    default = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'icon-192.png')
+    return send_file(default, mimetype='image/png')
+
+
 @ui_bp.route('/sw.js')
 def service_worker():
     sw_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'sw.js')

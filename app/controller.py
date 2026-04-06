@@ -1,11 +1,19 @@
-"""Top-level controller: ties Luminair parser to DMX engine."""
+"""Top-level controller: manages fixtures and scenes.
+
+DB is the source of truth. Luminair files are an import mechanism only —
+parsed on upload, stored to DB, never re-parsed on boot.
+"""
 
 import os
-import glob
 import logging
 from app.config import LUMINAIR_DIR
 from app.luminair.parser import parse_luminair
-from app.database import get_scene_overrides, get_setting, get_deleted_scene_ids, get_custom_scenes, get_uploads, save_scene_dmx
+from app.luminair.models import Fixture, Scene, ChannelProfile
+from app.database import (
+    has_stored_data, store_fixtures, store_scenes, load_fixtures, load_scenes,
+    update_scene, delete_scene as db_delete_scene, add_scene as db_add_scene,
+    get_setting,
+)
 
 logger = logging.getLogger('lighting.controller')
 
@@ -15,58 +23,47 @@ class Controller:
         self.engine = engine
         self.fixtures = []
         self.scenes = []
-        self._luminair_path = None
+        engine._on_scene_modified = self._persist_scene
 
-        # Load active upload from DB, or fall back to most recent file
-        os.makedirs(LUMINAIR_DIR, exist_ok=True)
-        uploads = get_uploads()
-        active = [u for u in uploads if u['active']]
-        if active:
-            path = os.path.join(LUMINAIR_DIR, active[0]['filename'])
-            if os.path.exists(path):
-                try:
-                    self.load_luminair(path)
-                    return
-                except Exception:
-                    logger.exception('Failed to load active upload %s', active[0]['filename'])
+        if has_stored_data():
+            self._load_from_db()
+        else:
+            logger.info('No stored data — waiting for Luminair upload')
 
-        files = sorted(glob.glob(os.path.join(LUMINAIR_DIR, '*.luminair')),
-                        key=os.path.getmtime, reverse=True)
-        if files:
-            try:
-                self.load_luminair(files[0])
-            except Exception:
-                logger.exception('Failed to auto-load %s', files[0])
+    def _load_from_db(self):
+        """Load fixtures and scenes from DB."""
+        import json
 
-    def load_luminair(self, filepath):
-        """Parse a Luminair file, apply saved overrides, push to engine."""
-        fixtures, scenes = parse_luminair(filepath)
-        self.fixtures = fixtures
-        self.scenes = scenes
-        self._luminair_path = filepath
-
-        # Remove deleted scenes, add custom scenes, apply overrides
-        deleted = get_deleted_scene_ids()
-        if deleted:
-            self.scenes = [s for s in self.scenes if s.id not in deleted]
-            logger.info('Removed %d deleted scenes', len(deleted))
-
-        from app.luminair.models import Scene
-        for cs in get_custom_scenes():
-            self.scenes.append(Scene(
-                id=cs['id'], name=cs['name'], dmx_values=cs['dmx_values'],
-                channel_mask=cs['channel_mask'], fade_in=cs['fade_in'],
-                fade_out=cs['fade_out'], button_color=cs['button_color'],
-                locked=False, master_level=cs['master_level'],
+        raw_fixtures = load_fixtures()
+        self.fixtures = []
+        for r in raw_fixtures:
+            channels = json.loads(r['profile_channels'])
+            self.fixtures.append(Fixture(
+                id=r['id'], name=r['name'], model=r['model'],
+                manufacturer=r['manufacturer'], dmx_address=r['dmx_address'],
+                channel_count=r['channel_count'],
+                profile=ChannelProfile(channels=channels),
+                group=r['grp'],
             ))
 
-        self._apply_overrides()
+        raw_scenes = load_scenes()
+        self.scenes = []
+        for r in raw_scenes:
+            mask = set(json.loads(r['channel_mask'])) if r['channel_mask'] else set()
+            self.scenes.append(Scene(
+                id=r['id'], name=r['name'],
+                dmx_values=bytes(r['dmx_values']) if r['dmx_values'] else bytes(512),
+                channel_mask=mask,
+                fade_in=r['fade_in'] or 0.0,
+                fade_out=r['fade_out'] or 0.2,
+                button_color=r['button_color'] or 'rgba(255,255,255,1)',
+                locked=bool(r['locked']),
+                master_level=r['master_level'] or 1.0,
+            ))
 
-        self.engine.set_fixtures(fixtures)
-        self.engine.set_scenes(scenes)
-        self.engine._on_scene_modified = self._persist_scene
-        logger.info('Loaded %s: %d fixtures, %d scenes',
-                     os.path.basename(filepath), len(fixtures), len(scenes))
+        self.engine.set_fixtures(self.fixtures)
+        self.engine.set_scenes(self.scenes)
+        logger.info('Loaded from DB: %d fixtures, %d scenes', len(self.fixtures), len(self.scenes))
 
         # Recall default scene if configured
         default_id = get_setting('default_scene')
@@ -74,38 +71,26 @@ class Controller:
             try:
                 scene_id = int(default_id)
                 if self.engine.recall_scene(scene_id, fade_time=0):
-                    scene = next((s for s in scenes if s.id == scene_id), None)
+                    scene = next((s for s in self.scenes if s.id == scene_id), None)
                     name = scene.name if scene else '?'
                     logger.info('Default scene recalled: %d "%s"', scene_id, name)
             except (ValueError, TypeError):
                 pass
 
+    def import_luminair(self, filepath):
+        """Parse a Luminair file and store everything to DB. Replaces all data."""
+        fixtures, scenes = parse_luminair(filepath)
+        self.fixtures = fixtures
+        self.scenes = scenes
+
+        store_fixtures(fixtures)
+        store_scenes(scenes)
+
+        self.engine.set_fixtures(fixtures)
+        self.engine.set_scenes(scenes)
+        logger.info('Imported %s: %d fixtures, %d scenes (stored to DB)',
+                     os.path.basename(filepath), len(fixtures), len(scenes))
+
     def _persist_scene(self, scene):
         """Called by engine when a scene's DMX values are modified by fader."""
-        save_scene_dmx(scene.id, scene.dmx_values)
-
-    def _apply_overrides(self):
-        """Apply saved fade times and fixture masks from the database."""
-        overrides = get_scene_overrides()
-        applied = 0
-        for scene in self.scenes:
-            ov = overrides.get(scene.id)
-            if ov is None:
-                continue
-            if ov.get('dmx_values') is not None:
-                scene.dmx_values = ov['dmx_values']
-            if ov['fade_in'] is not None:
-                scene.fade_in = ov['fade_in']
-            if ov['fixture_ids'] is not None:
-                # Rebuild channel mask from fixture IDs
-                new_mask = set()
-                fid_set = set(ov['fixture_ids'])
-                for fix in self.fixtures:
-                    if fix.id in fid_set:
-                        base = fix.dmx_address - 1
-                        for offset in range(fix.channel_count):
-                            new_mask.add(base + offset)
-                scene.channel_mask = new_mask
-            applied += 1
-        if applied:
-            logger.info('Applied %d saved scene overrides', applied)
+        update_scene(scene.id, dmx_values=scene.dmx_values)

@@ -54,12 +54,33 @@ def init_db():
             button_color TEXT,
             master_level REAL
         );
+        CREATE TABLE IF NOT EXISTS fixtures (
+            id INTEGER PRIMARY KEY,
+            name TEXT,
+            model TEXT,
+            manufacturer TEXT,
+            dmx_address INTEGER,
+            channel_count INTEGER,
+            profile_channels TEXT,
+            grp TEXT
+        );
+        CREATE TABLE IF NOT EXISTS scenes (
+            id INTEGER PRIMARY KEY,
+            name TEXT,
+            dmx_values BLOB,
+            channel_mask TEXT,
+            fade_in REAL,
+            fade_out REAL,
+            button_color TEXT,
+            locked INTEGER DEFAULT 0,
+            master_level REAL DEFAULT 1.0
+        );
     ''')
     # Migrations
     try:
         conn.execute('ALTER TABLE scene_overrides ADD COLUMN dmx_values BLOB')
     except Exception:
-        pass  # column already exists
+        pass
     conn.close()
     logger.info('Database initialized')
 
@@ -223,6 +244,103 @@ def save_scene_dmx(scene_id, dmx_values):
         VALUES (?, ?, ?, ?)''', (scene_id, fade_in, fix_ids, bytes(dmx_values)))
     conn.commit()
     conn.close()
+
+
+# ------------------------------------------------------------------
+# Full scene/fixture storage (DB as source of truth)
+# ------------------------------------------------------------------
+
+def has_stored_data():
+    """Check if DB has scenes and fixtures stored."""
+    conn = _connect()
+    sc = conn.execute('SELECT COUNT(*) as c FROM scenes').fetchone()['c']
+    fx = conn.execute('SELECT COUNT(*) as c FROM fixtures').fetchone()['c']
+    conn.close()
+    return sc > 0 and fx > 0
+
+
+def store_fixtures(fixtures):
+    """Write full fixture list to DB, replacing existing."""
+    conn = _connect()
+    conn.execute('DELETE FROM fixtures')
+    for f in fixtures:
+        conn.execute('''INSERT INTO fixtures (id, name, model, manufacturer,
+            dmx_address, channel_count, profile_channels, grp)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+            (f.id, f.name, f.model, f.manufacturer, f.dmx_address,
+             f.channel_count, json.dumps(f.profile.channels), f.group))
+    conn.commit()
+    conn.close()
+    logger.info('Stored %d fixtures to DB', len(fixtures))
+
+
+def store_scenes(scenes):
+    """Write full scene list to DB, replacing existing."""
+    conn = _connect()
+    conn.execute('DELETE FROM scenes')
+    for s in scenes:
+        conn.execute('''INSERT INTO scenes (id, name, dmx_values, channel_mask,
+            fade_in, fade_out, button_color, locked, master_level)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+            (s.id, s.name, bytes(s.dmx_values), json.dumps(sorted(s.channel_mask)),
+             s.fade_in, s.fade_out, s.button_color, int(s.locked), s.master_level))
+    conn.commit()
+    conn.close()
+    logger.info('Stored %d scenes to DB', len(scenes))
+
+
+def load_fixtures():
+    """Load fixtures from DB. Returns list of dicts or empty list."""
+    conn = _connect()
+    rows = conn.execute('SELECT * FROM fixtures ORDER BY id').fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def load_scenes():
+    """Load scenes from DB. Returns list of dicts or empty list."""
+    conn = _connect()
+    rows = conn.execute('SELECT * FROM scenes ORDER BY id').fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def update_scene(scene_id, **kwargs):
+    """Update specific fields of a scene in DB."""
+    conn = _connect()
+    for key, value in kwargs.items():
+        if key == 'dmx_values':
+            value = bytes(value)
+        elif key == 'channel_mask':
+            value = json.dumps(sorted(value))
+        elif key == 'locked':
+            value = int(value)
+        conn.execute(f'UPDATE scenes SET {key}=? WHERE id=?', (value, scene_id))
+    conn.commit()
+    conn.close()
+
+
+def delete_scene(scene_id):
+    """Delete a scene from DB."""
+    conn = _connect()
+    conn.execute('DELETE FROM scenes WHERE id=?', (scene_id,))
+    conn.commit()
+    conn.close()
+
+
+def add_scene(scene):
+    """Add a new scene to DB. Returns the assigned ID."""
+    conn = _connect()
+    row = conn.execute('SELECT MAX(id) as m FROM scenes').fetchone()
+    new_id = max(1000, (row['m'] or 0) + 1)
+    conn.execute('''INSERT INTO scenes (id, name, dmx_values, channel_mask,
+        fade_in, fade_out, button_color, locked, master_level)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+        (new_id, scene.name, bytes(scene.dmx_values), json.dumps(sorted(scene.channel_mask)),
+         scene.fade_in, scene.fade_out, scene.button_color, int(scene.locked), scene.master_level))
+    conn.commit()
+    conn.close()
+    return new_id
 
 
 def save_scene_fixtures(scene_id, fixture_ids):

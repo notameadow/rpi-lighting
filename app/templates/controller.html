@@ -57,63 +57,79 @@
 
     /* ── HEADER BAR ─────────────────────────────────────────────────── */
     #header {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      padding: 8px 16px;
       background: var(--surface);
       border-bottom: 1px solid var(--border);
       position: relative;
       z-index: 10;
+      padding: 6px 12px;
     }
-    #header h1 {
-      font-family: var(--mono);
-      font-size: 0.85rem;
-      font-weight: 700;
-      color: var(--accent);
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      white-space: nowrap;
-    }
-    .hdr-slider-section {
+    .hdr-row1 {
       display: flex;
       align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    #header-logo {
+      height: 28px;
+      width: 28px;
+      object-fit: contain;
+      border-radius: 4px;
+      flex-shrink: 0;
+      opacity: 0.7;
+    }
+    .hdr-row1-right {
+      display: flex;
+      gap: 6px;
+    }
+    .hdr-row2 {
+      display: flex;
       gap: 8px;
+    }
+    .hdr-control {
       flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 6px;
       min-width: 0;
     }
-    .hdr-slider-section label {
-      font-family: var(--mono);
-      font-size: 0.6rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      color: var(--muted);
-      white-space: nowrap;
-    }
-    #master-slider {
+    .hdr-control input[type=range] {
       flex: 1;
-      min-width: 60px;
+      min-width: 40px;
       height: 32px;
       -webkit-appearance: none;
       appearance: none;
       background: transparent;
     }
-    #master-slider::-webkit-slider-runnable-track {
+    .hdr-control input[type=range]::-webkit-slider-runnable-track {
       height: 6px;
       background: var(--groove);
       border-radius: 3px;
       border: 1px solid var(--border);
     }
-    #master-slider::-webkit-slider-thumb {
+    .hdr-control input[type=range]::-webkit-slider-thumb {
       -webkit-appearance: none;
-      width: 32px;
-      height: 32px;
+      width: 28px;
+      height: 28px;
       border-radius: 4px;
       background: var(--accent);
       border: 2px solid #b87a10;
-      margin-top: -14px;
+      margin-top: -12px;
       cursor: pointer;
+    }
+    #haze-slider::-webkit-slider-thumb {
+      background: var(--muted);
+      border-color: var(--border);
+    }
+    #haze-slider.active-haze::-webkit-slider-thumb {
+      background: var(--accent);
+      border-color: #b87a10;
+    }
+    .strobe-slider::-webkit-slider-thumb {
+      background: #e74c3c !important;
+      border-color: #a93226 !important;
+    }
+    .strobe-slider:disabled {
+      opacity: 0.3;
     }
     #master-val {
       font-family: var(--mono);
@@ -141,6 +157,11 @@
       display: flex;
       align-items: center;
     }
+    .fx-btn.icon-btn {
+      font-size: 1.4rem;
+      padding: 6px 12px;
+      line-height: 1;
+    }
     .fx-btn.active {
       border-color: var(--accent);
       color: var(--accent);
@@ -150,67 +171,42 @@
       border-color: #e74c3c;
       color: #e74c3c;
       background: rgba(231,76,60,0.15);
-      animation: strobe-flash 0.3s ease infinite;
+      animation: strobe-flash var(--strobe-period, 0.3s) step-end infinite;
     }
     @keyframes strobe-flash {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.6; }
-    }
-    .strobe-slider {
-      flex: 1;
-      min-width: 60px;
-      height: 32px;
-      -webkit-appearance: none;
-      appearance: none;
-      background: transparent;
-    }
-    .strobe-slider:disabled {
-      opacity: 0.3;
-    }
-    .strobe-slider::-webkit-slider-runnable-track {
-      height: 6px;
-      background: var(--groove);
-      border-radius: 3px;
-      border: 1px solid var(--border);
-    }
-    .strobe-slider::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      width: 32px;
-      height: 32px;
-      border-radius: 4px;
-      background: #e74c3c;
-      border: 2px solid #a93226;
-      margin-top: -14px;
-      cursor: pointer;
+      0%  { opacity: 1; }
+      50% { opacity: 0.3; }
     }
     #active-scene-indicator {
-      padding: 6px 10px;
+      padding: 6px 20px;
       border-radius: 4px;
       font-family: var(--mono);
-      font-size: 0.7rem;
+      font-size: 0.75rem;
       font-weight: 600;
       letter-spacing: 0.03em;
       white-space: nowrap;
       text-align: center;
       display: none;
-      width: 90px;
+      min-width: 100px;
+      max-width: 200px;
       overflow: hidden;
       text-overflow: ellipsis;
-      flex-shrink: 0;
+      animation: scene-pulse 3s ease-in-out infinite;
     }
     #active-scene-indicator.visible {
       display: block;
     }
-    .status-led {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: var(--ok);
-      box-shadow: 0 0 6px rgba(39,174,96,0.5);
-      flex-shrink: 0;
+    @keyframes scene-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
     }
-    .status-led.off {
-      background: var(--danger);
-      box-shadow: 0 0 6px var(--danger-glow);
+    .status-reload {
+      color: rgba(39,174,96,0.6);
+      border-color: rgba(39,174,96,0.25);
+    }
+    .status-reload.off {
+      color: rgba(192,57,43,0.7);
+      border-color: rgba(192,57,43,0.3);
     }
 
     /* ══════════════════════════════════════════════════════════════════
@@ -219,15 +215,12 @@
     #fader-strip {
       display: flex;
       align-items: stretch;
+      justify-content: center;
       background: var(--surface);
       border-bottom: 1px solid var(--border);
-      overflow-x: auto;
-      overflow-y: hidden;
-      padding: 8px 4px 6px;
-      gap: 2px;
-      scrollbar-width: none;
-      overscroll-behavior-x: none;
-      touch-action: pan-x;
+      overflow: hidden;
+      padding: 8px 8px 6px;
+      gap: 4px;
     }
     #fader-strip::-webkit-scrollbar { display: none; }
 
@@ -243,20 +236,15 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      flex-shrink: 0;
+      flex: 1;
+      min-width: 28px;
+      max-width: 50px;
       gap: 3px;
-    }
-    .ch-strip.single {
-      min-width: var(--fader-w);
-      width: var(--fader-w);
-    }
-    .ch-strip.dot-single {
-      min-width: var(--fader-w);
-      width: var(--fader-w);
     }
     .fader-pair {
       display: flex;
       gap: 2px;
+      width: 100%;
     }
     /* Colour dot above single fader */
     .color-dot {
@@ -275,7 +263,8 @@
     /* Vertical fader */
     .vfader-wrap {
       position: relative;
-      width: 28px;
+      width: 100%;
+      max-width: 36px;
       height: var(--fader-h);
       background: var(--groove);
       border: 1px solid var(--border);
@@ -292,7 +281,7 @@
       pointer-events: none;
     }
     .vfader-wrap.int .vfader-fill {
-      background: rgba(255,255,255,0.5);
+      background: var(--fader-color, rgba(255,255,255,0.5));
     }
     /* Smooth transitions during poll updates, disabled during touch */
     .vfader-wrap.smooth .vfader-fill,
@@ -388,7 +377,7 @@
     #color-canvas {
       display: block;
       width: 228px;
-      height: 200px;
+      height: 160px;
       border-radius: 4px;
       border: 1px solid var(--border);
       cursor: crosshair;
@@ -422,18 +411,20 @@
       cursor: pointer;
     }
     .pop-swatches {
-      display: flex;
-      gap: 6px;
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 4px;
       margin-bottom: 10px;
-      flex-wrap: wrap;
     }
     .pop-swatch {
-      width: 28px; height: 28px;
+      aspect-ratio: 1;
       border-radius: 4px;
       border: 2px solid var(--border);
       cursor: pointer;
+      touch-action: manipulation;
     }
-    .pop-swatch:active { border-color: var(--accent); }
+    .pop-swatch:active { border-color: var(--accent); transform: scale(0.9); }
+    .pop-swatch.selected { border-color: var(--accent); box-shadow: 0 0 6px rgba(232,160,32,0.5); }
     .pop-intensity-row {
       display: flex;
       align-items: center;
@@ -509,6 +500,11 @@
     #scene-bank::-webkit-scrollbar-thumb {
       background: var(--border);
       border-radius: 2px;
+    }
+    #scene-toolbar {
+      display: flex;
+      justify-content: flex-end;
+      padding: 8px 0 0;
     }
     #scene-grid {
       display: grid;
@@ -908,24 +904,32 @@
 
   <!-- ═══ HEADER ═══ -->
   <div id="header">
-    <h1>LTG</h1>
-    <div class="hdr-slider-section">
-      <label>Mstr</label>
-      <input type="range" id="master-slider" min="0" max="255" value="255">
-      <span id="master-val">255</span>
-      <button class="fx-btn" id="master-fade-btn" onclick="toggleMasterFade()">FO</button>
+    <div class="hdr-row1">
+      <img id="header-logo" src="/logo" alt="">
+      <div id="active-scene-indicator"></div>
+      <div class="hdr-row1-right">
+        <button class="fx-btn icon-btn" id="settings-btn" onclick="toggleSettings()" title="Settings">&#9881;</button>
+        <button class="fx-btn icon-btn status-reload" id="reload-btn" onclick="hardReload()" title="Reload">&#8635;</button>
+      </div>
     </div>
-    <button class="fx-btn" id="haze-btn" onclick="toggleHaze()">HAZE</button>
-    <div class="hdr-slider-section strobe-section">
-      <button class="fx-btn" id="strobe-btn" onclick="toggleStrobe()">STROBE</button>
-      <input type="range" id="strobe-slider" min="10" max="255" value="128"
-        oninput="strobeSpeedChanged(this.value)" class="strobe-slider" disabled>
+    <div class="hdr-row2">
+      <div class="hdr-control">
+        <button class="fx-btn" id="fo-btn" onclick="fadeOut()">FO</button>
+        <input type="range" id="master-slider" min="0" max="255" value="255">
+        <span id="master-val">100%</span>
+        <button class="fx-btn" id="fi-btn" onclick="fadeIn()">FI</button>
+      </div>
+      <div class="hdr-control">
+        <button class="fx-btn" id="haze-btn" onclick="toggleHaze()">HAZE</button>
+        <input type="range" id="haze-slider" min="0" max="255" value="0"
+          oninput="hazeSliderChanged(this.value)">
+      </div>
+      <div class="hdr-control">
+        <button class="fx-btn" id="strobe-btn" onclick="toggleStrobe()">STROBE</button>
+        <input type="range" id="strobe-slider" min="10" max="255" value="128"
+          oninput="strobeSpeedChanged(this.value)" class="strobe-slider" disabled>
+      </div>
     </div>
-    <div id="active-scene-indicator"></div>
-    <button class="fx-btn" id="reload-btn" onclick="hardReload()" title="Reload">&#8635;</button>
-    <button class="fx-btn" id="edit-mode-btn" onclick="toggleEditMode()">EDIT</button>
-    <button class="fx-btn" id="settings-btn" onclick="toggleSettings()" title="Settings">&#9881;</button>
-    <div class="status-led" id="status-led"></div>
   </div>
 
   <!-- ═══ FADER STRIP ═══ -->
@@ -934,6 +938,9 @@
   <!-- ═══ SCENE BANK ═══ -->
   <div id="scene-bank">
     <div id="scene-grid"></div>
+    <div id="scene-toolbar">
+      <button class="fx-btn" id="edit-mode-btn" onclick="toggleEditMode()">EDIT</button>
+    </div>
   </div>
 
 </div>
@@ -976,6 +983,13 @@
         <button class="fx-btn" onclick="showDiff()">DIFF</button>
       </div>
       <div id="diff-result" style="font-family:var(--mono);font-size:0.6rem;color:var(--text);max-height:200px;overflow-y:auto;display:none;background:var(--groove);border:1px solid var(--border);border-radius:4px;padding:8px;white-space:pre-wrap"></div>
+    </div>
+    <div class="setting-row" style="flex-direction:column;align-items:stretch;gap:8px">
+      <label>Logo</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="file" id="logo-file" accept="image/*" class="luminair-file-input">
+        <button class="fx-btn" onclick="uploadLogo()">SET</button>
+      </div>
     </div>
     <div class="setting-row">
       <label>Keep screen on</label>
@@ -1035,11 +1049,11 @@
 <!-- Color picker popover -->
 <div id="color-popover">
   <h3 id="pop-title">—</h3>
-  <canvas id="color-canvas" width="228" height="200"></canvas>
+  <div class="pop-swatches" id="pop-swatches"></div>
+  <canvas id="color-canvas" width="228" height="160"></canvas>
   <div id="hue-slider-row">
     <input type="range" id="hue-slider" min="0" max="360" value="0" oninput="popHueChanged(this.value)">
   </div>
-  <div class="pop-swatches" id="pop-swatches"></div>
   <div class="pop-intensity-row" id="pop-white-row" style="display:none">
     <label>W</label>
     <input type="range" id="pop-white" min="0" max="255" value="0" oninput="popWhiteChanged(this.value)">
@@ -1067,14 +1081,24 @@ let faderTouching = {};  // track active touches on faders
 let faderCooldown = {};  // timestamp when touch ended — ignore poll updates briefly
 
 const PRESETS = [
-  { n:'Red',    r:255, g:0,   b:0   },
-  { n:'Blue',   r:0,   g:0,   b:255 },
-  { n:'Green',  r:0,   g:255, b:0   },
-  { n:'Amber',  r:255, g:140, b:0   },
-  { n:'White',  r:255, g:255, b:255 },
-  { n:'Purple', r:160, g:0,   b:255 },
-  { n:'Cyan',   r:0,   g:255, b:255 },
-  { n:'Off',    r:0,   g:0,   b:0   },
+  // Row 1: primaries and secondaries
+  { n:'Red',     r:255, g:0,   b:0   },
+  { n:'Orange',  r:255, g:100, b:0   },
+  { n:'Amber',   r:255, g:160, b:0   },
+  { n:'Yellow',  r:255, g:255, b:0   },
+  { n:'Green',   r:0,   g:255, b:0   },
+  { n:'Cyan',    r:0,   g:255, b:255 },
+  { n:'Blue',    r:0,   g:0,   b:255 },
+  { n:'Purple',  r:160, g:0,   b:255 },
+  // Row 2: tints, white, warm, cool
+  { n:'Magenta', r:255, g:0,   b:200 },
+  { n:'Pink',    r:255, g:100, b:150 },
+  { n:'Coral',   r:255, g:100, b:80  },
+  { n:'Warm',    r:255, g:200, b:120 },
+  { n:'White',   r:255, g:255, b:255 },
+  { n:'Cool',    r:180, g:220, b:255 },
+  { n:'Lavndr',  r:150, g:120, b:255 },
+  { n:'Off',     r:0,   g:0,   b:0   },
 ];
 
 /* ─── API helper ────────────────────────────────────────────────────────── */
@@ -1117,7 +1141,7 @@ async function poll() {
 }
 
 function setLed(ok) {
-  document.getElementById('status-led').classList.toggle('off', !ok);
+  document.getElementById('reload-btn').classList.toggle('off', !ok);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -1282,7 +1306,7 @@ function setFaderVisual(fid, suffix, val, color) {
     if (color) fill.style.background = color;
   }
   if (thumb) thumb.style.bottom = 'calc(' + pct + '% - 5px)';
-  if (valEl) valEl.textContent = val;
+  if (valEl) valEl.textContent = Math.round(val / 255 * 100);
 }
 
 const COOLDOWN_MS = 2000;
@@ -1295,27 +1319,45 @@ function isFaderLocked(key) {
 
 // Sync faders from polled state.levels
 function syncFaders() {
+  try { _syncFadersInner(); } catch(e) { console.error('syncFaders error:', e); }
+}
+function _syncFadersInner() {
   if (!state.levels) return;
+  const lvlMap = {};
+  Object.entries(state.levels).forEach(([k, v]) => { lvlMap[parseInt(k)] = v; });
+
   fixtures.forEach(f => {
-    const levels = state.levels[f.id];
+    const levels = lvlMap[f.id];
     if (!levels) return;
 
     const hasRGB = fixHasRGB(f);
     const hasW = fixHasWhite(f);
     const intName = fixIntensityName(f);
 
+    // Determine fixture colour for fill and dot
+    const r = levels.Red || 0, g = levels.Green || 0, b = levels.Blue || 0;
+    const w = levels.White || 0;
+    let fillColor = 'rgba(255,255,255,0.5)';
+    if (hasRGB) {
+      const mx = Math.max(r, g, b);
+      if (mx > 0) fillColor = 'rgba(' + r + ',' + g + ',' + b + ',0.7)';
+    } else if (hasW && w > 0) {
+      fillColor = 'rgba(255,255,255,0.6)';
+    }
+
     if (!isFaderLocked('int-' + f.id)) {
       const intWrap = document.getElementById('fw-int-' + f.id);
       if (intWrap) intWrap.classList.add('smooth');
       const intVal = levels[intName] || 0;
+      // Set fill colour on the fader
+      const fill = document.getElementById('ff-int-' + f.id);
+      if (fill) fill.style.background = fillColor;
       setFaderVisual(f.id, 'int', intVal);
     }
 
-    // Update colour dot for fixtures with RGB or White
+    // Update colour dot
     const dot = document.getElementById('cdot-' + f.id);
     if (dot) {
-      const r = levels.Red || 0, g = levels.Green || 0, b = levels.Blue || 0;
-      const w = levels.White || 0;
       if (hasRGB) {
         const mx = Math.max(r, g, b);
         dot.style.background = mx > 0 ? 'rgb(' + r + ',' + g + ',' + b + ')' : 'var(--muted)';
@@ -1563,13 +1605,12 @@ function renderScenes() {
   grid.innerHTML = '';
   const filtered = scenes.filter(s => !isSceneHidden(s.name));
 
-  // Restore saved order if available
+  // Restore saved order by scene ID (stable now that DB is source of truth)
   try {
     const saved = localStorage.getItem('ltg-scene-order');
     if (saved) {
       const savedIds = JSON.parse(saved);
       const idSet = new Set(filtered.map(s => s.id));
-      // Use saved order for known scenes, append any new ones at the end
       const ordered = [];
       savedIds.forEach(id => { if (idSet.has(id)) ordered.push(id); });
       filtered.forEach(s => { if (!ordered.includes(s.id)) ordered.push(s.id); });
@@ -1885,7 +1926,12 @@ const masterSlider = document.getElementById('master-slider');
 const masterVal    = document.getElementById('master-val');
 
 masterSlider.addEventListener('input', () => {
-  masterVal.textContent = masterSlider.value;
+  // Stop any running fade animation if user grabs the slider
+  if (masterAnimating) {
+    masterAnimating = false;
+    updateMasterFadeBtns();
+  }
+  masterVal.textContent = toPct(masterSlider.value) + '%';
   throttledPost('master', '/api/master', { value: parseInt(masterSlider.value) });
 });
 
@@ -1899,14 +1945,25 @@ masterSlider.addEventListener('input', () => {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 function toggleHaze() {
-  const on = !state.haze;
-  state.haze = on;
+  // If haze is on (any level > 0), turn off. Otherwise, go to max.
+  const newLevel = (state.haze_level > 0) ? 0 : 255;
+  state.haze_level = newLevel;
+  state.haze = newLevel > 0;
+  document.getElementById('haze-slider').value = newLevel;
   updateFxButtons();
   api('/api/haze', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ on })
+    body: JSON.stringify({ level: newLevel })
   });
+}
+
+function hazeSliderChanged(val) {
+  const v = parseInt(val);
+  state.haze_level = v;
+  state.haze = v > 0;
+  updateFxButtons();
+  throttledPost('haze', '/api/haze', { level: v });
 }
 
 function toggleStrobe() {
@@ -1921,17 +1978,33 @@ function toggleStrobe() {
 }
 
 function strobeSpeedChanged(val) {
-  throttledPost('strobe-speed', '/api/strobe', { speed: parseInt(val) });
+  const speed = parseInt(val);
+  state.strobe_speed = speed;
+  // Update button animation speed immediately
+  const period = 0.5 - (speed - 10) / 245 * 0.45;
+  document.getElementById('strobe-btn').style.setProperty('--strobe-period', Math.max(0.05, period) + 's');
+  throttledPost('strobe-speed', '/api/strobe', { speed });
 }
 
 function updateFxButtons() {
   document.getElementById('haze-btn').classList.toggle('active', !!state.haze);
+  const hazeSlider = document.getElementById('haze-slider');
+  hazeSlider.classList.toggle('active-haze', !!state.haze);
+  if (state.haze_level != null && document.activeElement !== hazeSlider) {
+    hazeSlider.value = state.haze_level;
+  }
   const strobeOn = !!state.strobe;
-  document.getElementById('strobe-btn').classList.toggle('strobe-active', strobeOn);
-  const slider = document.getElementById('strobe-slider');
-  slider.disabled = !strobeOn;
-  if (state.strobe_speed != null && document.activeElement !== slider) {
-    slider.value = state.strobe_speed;
+  const strobeBtn = document.getElementById('strobe-btn');
+  strobeBtn.classList.toggle('strobe-active', strobeOn);
+  // Set animation speed to match the base strobe period
+  if (strobeOn && state.strobe_speed) {
+    const period = 0.5 - (state.strobe_speed - 10) / 245 * 0.45; // matches engine formula
+    strobeBtn.style.setProperty('--strobe-period', Math.max(0.05, period) + 's');
+  }
+  const strobeSlider = document.getElementById('strobe-slider');
+  strobeSlider.disabled = !strobeOn;
+  if (state.strobe_speed != null && document.activeElement !== strobeSlider) {
+    strobeSlider.value = state.strobe_speed;
   }
 }
 
@@ -1940,17 +2013,54 @@ function updateFxButtons() {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 let masterFadeTime = 2.0;
+let masterAnimating = false;
+let masterAnimStart = 255;
+let masterAnimTarget = 0;
+let masterAnimStartTime = 0;
+let masterAnimDuration = 2000;
 
-function toggleMasterFade() {
-  // If master is > 0, fade out. If 0, fade in.
-  const target = state.master > 0 ? 0 : 255;
-  const btn = document.getElementById('master-fade-btn');
-  btn.textContent = target === 0 ? 'FI' : 'FO';
+function toPct(val) { return Math.round(val / 255 * 100); }
+
+function animateMasterSlider() {
+  if (!masterAnimating) return;
+  const elapsed = performance.now() - masterAnimStartTime;
+  const t = Math.min(1, elapsed / masterAnimDuration);
+  const val = Math.round(masterAnimStart + (masterAnimTarget - masterAnimStart) * t);
+  masterSlider.value = val;
+  masterVal.textContent = toPct(val) + '%';
+  if (t < 1) {
+    requestAnimationFrame(animateMasterSlider);
+  } else {
+    masterAnimating = false;
+    updateMasterFadeBtns();
+  }
+}
+
+function startMasterFade(target) {
+  const current = parseInt(masterSlider.value);
+  if (current === target) return;
+
+  masterAnimating = true;
+  masterAnimStart = current;
+  masterAnimTarget = target;
+  masterAnimStartTime = performance.now();
+  masterAnimDuration = masterFadeTime * 1000;
+  animateMasterSlider();
+  updateMasterFadeBtns();
+
   api('/api/master/fade', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({ target, duration: masterFadeTime })
   });
+}
+
+function fadeOut() { startMasterFade(0); }
+function fadeIn() { startMasterFade(255); }
+
+function updateMasterFadeBtns() {
+  document.getElementById('fo-btn').classList.toggle('active', masterAnimating && masterAnimTarget === 0);
+  document.getElementById('fi-btn').classList.toggle('active', masterAnimating && masterAnimTarget === 255);
 }
 
 function adjMasterFadeTime(delta) {
@@ -2121,6 +2231,17 @@ function hardReload() {
 // Register service worker for PWA install
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+
+async function uploadLogo() {
+  const input = document.getElementById('logo-file');
+  if (!input.files || !input.files[0]) return;
+  const form = new FormData();
+  form.append('file', input.files[0]);
+  const resp = await api('/api/logo', { method: 'POST', body: form });
+  if (resp && resp.ok) {
+    document.getElementById('header-logo').src = '/logo?t=' + Date.now();
+  }
 }
 
 let uploading = false;
@@ -2326,16 +2447,22 @@ async function showDiff() {
 
 function updateUI() {
   if (document.activeElement !== masterSlider) {
+    if (!masterAnimating) {
+      masterSlider.value = state.master;
+      masterVal.textContent = toPct(state.master) + '%';
+    }
+  }
+  // When server reports fade is done, stop client animation and sync final value
+  if (!state.master_fading && masterAnimating) {
+    masterAnimating = false;
     masterSlider.value = state.master;
-    masterVal.textContent = state.master;
+    masterVal.textContent = toPct(state.master) + '%';
+    updateMasterFadeBtns();
   }
   updateSceneButtons();
   updateSceneIndicator();
   updateFxButtons();
-  // Update master fade button label
-  const fadeBtn = document.getElementById('master-fade-btn');
-  fadeBtn.textContent = state.master > 0 ? 'FO' : 'FI';
-  fadeBtn.classList.toggle('active', !!state.master_fading);
+  updateMasterFadeBtns();
   syncFaders();
 }
 

@@ -41,6 +41,7 @@ class DMXEngine:
 
         # Haze: direct DMX ch8 (index 7) control, independent of scenes
         self._haze_on = False
+        self._haze_level = 0
         self._haze_channel = 7  # 0-based, DMX ch8
 
             # Software strobe: toggles RGB on/off per fixture at random intervals
@@ -201,7 +202,15 @@ class DMXEngine:
     def set_haze(self, on):
         with self._lock:
             self._haze_on = bool(on)
-            logger.info('Haze %s', 'ON' if on else 'OFF')
+            if on and self._haze_level == 0:
+                self._haze_level = 255
+            logger.info('Haze %s (level=%d)', 'ON' if on else 'OFF', self._haze_level)
+
+    def set_haze_level(self, level):
+        with self._lock:
+            self._haze_level = max(0, min(255, int(level)))
+            self._haze_on = self._haze_level > 0
+            logger.info('Haze level=%d', self._haze_level)
 
     # ------------------------------------------------------------------
     # Strobe (random strobe on all SlimPars, independent of scenes)
@@ -224,6 +233,7 @@ class DMXEngine:
             self._strobe_speed = max(10, min(255, int(speed)))
             if self._strobe_on:
                 self._randomize_strobe()
+                self._strobe_next_change = time.monotonic() + self.STROBE_RERANDOMIZE_S
 
     def _randomize_strobe(self):
         """Assign random flash periods and phase offsets to all SlimPar fixtures."""
@@ -270,7 +280,7 @@ class DMXEngine:
                 )
 
             # Apply haze override (direct ch8 control)
-            self._current[self._haze_channel] = 255 if self._haze_on else 0
+            self._current[self._haze_channel] = self._haze_level if self._haze_on else 0
 
             # Software strobe: toggle RGB on/off per fixture based on timing
             if self._strobe_on:
@@ -335,7 +345,9 @@ class DMXEngine:
                 'fade_progress': fade_progress,
                 'master_fading': self._master_fade_duration > 0 and
                     (time.monotonic() - self._master_fade_start_time) < self._master_fade_duration,
+                'master_fade_target': self._master_fade_target,
                 'haze': self._haze_on,
+                'haze_level': self._haze_level,
                 'strobe': self._strobe_on,
                 'strobe_speed': self._strobe_speed,
             }

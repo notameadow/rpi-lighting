@@ -1,11 +1,10 @@
-// Minimal service worker for PWA install.
-// Network-only: never cache, always fetch fresh from server.
+// v2 — force update
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then(names => Promise.all(names.map(n => caches.delete(n))))
+      .then(() => self.clients.claim())
   );
 });
-self.addEventListener('fetch', (event) => {
-  event.respondWith(fetch(event.request));
-});
+// Pass through everything — no caching
+self.addEventListener('fetch', () => {});

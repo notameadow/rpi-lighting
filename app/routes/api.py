@@ -3,8 +3,9 @@ import logging
 from flask import Blueprint, jsonify, request, current_app
 from app.auth import require_auth
 from app.config import LUMINAIR_DIR
-from app.database import (save_scene_fade, save_scene_fixtures, get_setting, set_setting,
-                          add_deleted_scene, save_custom_scene, delete_custom_scene, next_custom_scene_id,
+from app.database import (get_setting, set_setting, update_scene,
+                          delete_scene as db_del_scene, add_scene as db_add_scene,
+                          store_scenes,
                           add_upload, get_uploads, set_active_upload, delete_upload as db_delete_upload)
 
 logger = logging.getLogger('lighting.api')
@@ -115,7 +116,7 @@ def set_scene_fixtures(scene_id):
             for offset in range(f.channel_count):
                 new_mask.add(base + offset)
     scene.channel_mask = new_mask
-    save_scene_fixtures(scene_id, fixture_ids)
+    update_scene(scene_id, channel_mask=new_mask)
     logger.info('Scene %d "%s" fixtures updated: %d fixtures, %d channels',
                 scene_id, scene.name, len(fid_set), len(new_mask))
     return jsonify({'ok': True, 'channels': len(new_mask)})
@@ -136,20 +137,19 @@ def copy_scene(scene_id):
         return jsonify({'ok': False, 'error': 'scene not found'}), 404
 
     new_name = data.get('name', src.name + ' copy')
-    new_id = next_custom_scene_id()
 
     from app.luminair.models import Scene
     new_scene = Scene(
-        id=new_id, name=new_name,
+        id=0, name=new_name,
         dmx_values=bytes(src.dmx_values), channel_mask=set(src.channel_mask),
         fade_in=src.fade_in, fade_out=src.fade_out,
         button_color=src.button_color, locked=False, master_level=src.master_level,
     )
+    new_id = db_add_scene(new_scene)
+    new_scene.id = new_id
     ctrl.scenes.append(new_scene)
     _engine().set_scenes(ctrl.scenes)
 
-    save_custom_scene(new_id, new_name, src.dmx_values, src.channel_mask,
-                      src.fade_in, src.fade_out, src.button_color, src.master_level)
     logger.info('Copied scene %d "%s" → %d "%s"', scene_id, src.name, new_id, new_name)
     return jsonify({'ok': True, 'id': new_id, 'name': new_name})
 
@@ -169,11 +169,7 @@ def delete_scene(scene_id):
 
     ctrl.scenes.remove(found)
     _engine().set_scenes(ctrl.scenes)
-
-    if scene_id >= 1000:
-        delete_custom_scene(scene_id)
-    else:
-        add_deleted_scene(scene_id)
+    db_del_scene(scene_id)
 
     logger.info('Deleted scene %d "%s"', scene_id, found.name)
     return jsonify({'ok': True})
@@ -192,7 +188,7 @@ def set_scene_fade(scene_id):
     for s in ctrl.scenes:
         if s.id == scene_id:
             s.fade_in = max(0.0, fade_in)
-            save_scene_fade(scene_id, s.fade_in)
+            update_scene(scene_id, fade_in=s.fade_in)
             return jsonify({'ok': True, 'fade_in': s.fade_in})
     return jsonify({'ok': False, 'error': 'scene not found'}), 404
 
@@ -313,9 +309,13 @@ def fade_master():
 @require_auth
 def haze():
     data = request.get_json(silent=True) or {}
-    on = data.get('on', True)
-    _engine().set_haze(bool(on))
-    return jsonify({'ok': True, 'haze': bool(on)})
+    if 'level' in data:
+        _engine().set_haze_level(int(data['level']))
+    elif 'on' in data:
+        _engine().set_haze(bool(data['on']))
+    else:
+        _engine().set_haze(True)
+    return jsonify({'ok': True})
 
 
 @api_bp.route('/api/strobe', methods=['POST'])
@@ -352,6 +352,17 @@ def save_settings():
             set_setting('default_scene', str(int(val)))
     if 'master_fade_time' in data:
         set_setting('master_fade_time', str(float(data['master_fade_time'])))
+    return jsonify({'ok': True})
+
+
+@api_bp.route('/api/logo', methods=['POST'])
+@require_auth
+def upload_logo():
+    if 'file' not in request.files:
+        return jsonify({'ok': False}), 400
+    f = request.files['file']
+    path = os.path.join(os.path.dirname(LUMINAIR_DIR), 'logo.png')
+    f.save(path)
     return jsonify({'ok': True})
 
 
@@ -392,7 +403,7 @@ def upload_luminair():
     logger.info('Uploaded %s (%d bytes) as %s', f.filename, file_size, stored_name)
 
     try:
-        _controller().load_luminair(path)
+        _controller().import_luminair(path)
         fix_count = len(_controller().fixtures)
         scene_count = len(_controller().scenes)
         add_upload(stored_name, f.filename, file_size, fix_count, scene_count)
@@ -423,7 +434,7 @@ def activate_upload(upload_id):
     if not os.path.exists(path):
         return jsonify({'ok': False, 'error': 'file missing'}), 404
     try:
-        _controller().load_luminair(path)
+        _controller().import_luminair(path)
         return jsonify({'ok': True, 'fixtures': len(_controller().fixtures),
                         'scenes': len(_controller().scenes)})
     except Exception as e:
