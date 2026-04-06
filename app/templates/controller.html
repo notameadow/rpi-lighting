@@ -184,7 +184,7 @@
       cursor: pointer;
     }
     #active-scene-indicator {
-      padding: 6px 16px;
+      padding: 6px 10px;
       border-radius: 4px;
       font-family: var(--mono);
       font-size: 0.7rem;
@@ -193,6 +193,10 @@
       white-space: nowrap;
       text-align: center;
       display: none;
+      width: 90px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex-shrink: 0;
     }
     #active-scene-indicator.visible {
       display: block;
@@ -739,7 +743,19 @@
       border-radius: 6px;
       padding: 12px 14px;
       box-shadow: 0 8px 32px rgba(0,0,0,0.8);
-      min-width: 180px;
+      width: 320px;
+      max-width: calc(100vw - 16px);
+      max-height: 66vh;
+      overflow-x: hidden;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+    #scene-ctx::-webkit-scrollbar { width: 4px; }
+    #scene-ctx::-webkit-scrollbar-track { background: transparent; }
+    #scene-ctx::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 2px;
     }
     #scene-ctx.visible { display: block; }
     #scene-ctx h3 {
@@ -906,6 +922,7 @@
         oninput="strobeSpeedChanged(this.value)" class="strobe-slider" disabled>
     </div>
     <div id="active-scene-indicator"></div>
+    <button class="fx-btn" id="reload-btn" onclick="hardReload()" title="Reload">&#8635;</button>
     <button class="fx-btn" id="edit-mode-btn" onclick="toggleEditMode()">EDIT</button>
     <button class="fx-btn" id="settings-btn" onclick="toggleSettings()" title="Settings">&#9881;</button>
     <div class="status-led" id="status-led"></div>
@@ -1481,14 +1498,17 @@ function openPopover(fix, evt) {
   document.getElementById('hue-slider').value = popHue;
   drawSVCanvas();
 
-  // Position below the tapped element, clamped to viewport
+  // Position below the tapped element, accounting for CSS zoom
+  const zoom = parseFloat(document.documentElement.style.zoom) || 1;
+  const vw = window.innerWidth / zoom;
+  const vh = window.innerHeight / zoom;
   const rect = evt.target.getBoundingClientRect();
-  const popW = 270, popH = 400;
-  let left = rect.left;
-  let top = rect.bottom + 6;
-  if (left + popW > window.innerWidth) left = window.innerWidth - popW - 8;
+  const popW = 290, popH = 400;
+  let left = rect.left / zoom;
+  let top = (rect.bottom + 6) / zoom;
+  if (left + popW > vw - 8) left = vw - popW - 8;
   if (left < 8) left = 8;
-  if (top + popH > window.innerHeight) top = rect.top - popH - 6;
+  if (top + popH > vh - 8) top = (rect.top / zoom) - popH - 6;
   if (top < 8) top = 8;
   pop.style.left = left + 'px';
   pop.style.top = top + 'px';
@@ -1719,7 +1739,7 @@ function openSceneCtx(sceneId, x, y) {
   // Show which fixtures this scene controls — tappable to toggle
   const ctxFix = document.getElementById('ctx-fixtures');
   ctxFix.innerHTML = '';
-  const controlled = new Set(scene.fixtures_nonzero || scene.fixtures || []);
+  const controlled = new Set(scene.fixtures || []);
   fixtures.forEach(f => {
     const chip = document.createElement('span');
     const isOn = controlled.has(f.id);
@@ -1736,13 +1756,29 @@ function openSceneCtx(sceneId, x, y) {
   });
 
   const ctx = document.getElementById('scene-ctx');
-  // Position near click, but keep on screen
-  const ctxW = 200, ctxH = 140;
-  ctx.style.left = Math.min(x, window.innerWidth - ctxW - 8) + 'px';
-  ctx.style.top = Math.min(y, window.innerHeight - ctxH - 8) + 'px';
+  // Position: clamp to viewport
+  const vpH = window.visualViewport ? window.visualViewport.height : document.documentElement.clientHeight;
+  const maxH = Math.floor(vpH * 0.66);
+  // Position the menu, accounting for CSS zoom
+  const zoom = parseFloat(document.documentElement.style.zoom) || 1;
+  const vw = window.innerWidth / zoom;
+  const vh = window.innerHeight / zoom;
+  const menuW = 320 + 30; // width + padding + border
+
+  let left = x / zoom;
+  let top = y / zoom;
+
+  if (left + menuW > vw - 8) left = vw - menuW - 8;
+  if (top + maxH > vh - 8) top = vh - maxH - 8;
+  if (left < 8) left = 8;
+  if (top < 8) top = 8;
+
+  ctx.style.left = left + 'px';
+  ctx.style.top = top + 'px';
+  ctx.style.right = 'auto';
+  ctx.classList.add('visible');
 
   document.getElementById('backdrop').classList.add('visible');
-  ctx.classList.add('visible');
 
   // Save on input change
   fadeInput.onchange = () => {
@@ -2068,6 +2104,24 @@ try {
     enableWakeLock();
   }
 } catch(_) {}
+
+function hardReload() {
+  // Unregister service worker and force a clean reload
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(regs => {
+      regs.forEach(r => r.unregister());
+    }).then(() => {
+      location.href = location.href.split('?')[0] + '?t=' + Date.now();
+    });
+  } else {
+    location.href = location.href.split('?')[0] + '?t=' + Date.now();
+  }
+}
+
+// Register service worker for PWA install
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
 
 let uploading = false;
 
