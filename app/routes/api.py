@@ -5,7 +5,7 @@ from app.auth import require_auth
 from app.config import LUMINAIR_DIR
 from app.database import (get_setting, set_setting, update_scene,
                           delete_scene as db_del_scene, add_scene as db_add_scene,
-                          store_scenes,
+                          store_scenes, reorder_scenes,
                           add_upload, get_uploads, set_active_upload, delete_upload as db_delete_upload)
 
 logger = logging.getLogger('lighting.api')
@@ -172,6 +172,19 @@ def delete_scene(scene_id):
     db_del_scene(scene_id)
 
     logger.info('Deleted scene %d "%s"', scene_id, found.name)
+    return jsonify({'ok': True})
+
+
+@api_bp.route('/api/scenes/reorder', methods=['POST'])
+@require_auth
+def reorder_scenes_api():
+    """Persist scene display order."""
+    data = request.get_json(silent=True) or {}
+    order = data.get('order')
+    if not order or not isinstance(order, list):
+        return jsonify({'ok': False, 'error': 'order required'}), 400
+    reorder_scenes(order)
+    logger.info('Scene order updated: %s', order)
     return jsonify({'ok': True})
 
 

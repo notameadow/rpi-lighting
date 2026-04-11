@@ -128,12 +128,12 @@
       background: #e74c3c !important;
       border-color: #a93226 !important;
     }
-    .strobe-slider:disabled {
-      opacity: 0.3;
+    .strobe-slider:not(.strobe-active) {
+      opacity: 0.5;
     }
     #master-val {
       font-family: var(--mono);
-      font-size: 0.85rem;
+      font-size: min(0.85rem, 16px);
       font-weight: 700;
       color: var(--accent);
       min-width: 30px;
@@ -147,7 +147,7 @@
       color: var(--muted);
       font-family: var(--mono);
       font-weight: 700;
-      font-size: 0.75rem;
+      font-size: min(0.75rem, 14px);
       letter-spacing: 0.08em;
       cursor: pointer;
       white-space: nowrap;
@@ -158,7 +158,7 @@
       align-items: center;
     }
     .fx-btn.icon-btn {
-      font-size: 1.4rem;
+      font-size: min(1.4rem, 22px);
       padding: 6px 12px;
       line-height: 1;
     }
@@ -181,7 +181,7 @@
       padding: 6px 20px;
       border-radius: 4px;
       font-family: var(--mono);
-      font-size: 0.75rem;
+      font-size: min(0.75rem, 14px);
       font-weight: 600;
       letter-spacing: 0.03em;
       white-space: nowrap;
@@ -215,12 +215,13 @@
     #fader-strip {
       display: flex;
       align-items: stretch;
-      justify-content: center;
       background: var(--surface);
       border-bottom: 1px solid var(--border);
-      overflow: hidden;
+      overflow-x: auto;
+      overflow-y: hidden;
       padding: 8px 8px 6px;
       gap: 4px;
+      -webkit-overflow-scrolling: touch;
     }
     #fader-strip::-webkit-scrollbar { display: none; }
 
@@ -236,9 +237,8 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      flex: 1;
-      min-width: 28px;
-      max-width: 50px;
+      flex: 0 0 auto;
+      width: 36px;
       gap: 3px;
     }
     .fader-pair {
@@ -254,7 +254,7 @@
       border: 2px solid var(--border);
       cursor: pointer;
       flex-shrink: 0;
-      transition: border-color 0.15s;
+      transition: border-color 0.15s, background 0.5s linear;
     }
     .color-dot:active {
       border-color: var(--accent);
@@ -271,7 +271,7 @@
       border-radius: 3px;
       overflow: hidden;
       cursor: pointer;
-      touch-action: pan-x;
+      touch-action: pan-x pan-y;
     }
     .vfader-fill {
       position: absolute;
@@ -286,7 +286,7 @@
     /* Smooth transitions during poll updates, disabled during touch */
     .vfader-wrap.smooth .vfader-fill,
     .vfader-wrap.smooth .vfader-thumb {
-      transition: height 0.5s linear, bottom 0.5s linear;
+      transition: height 0.5s linear, bottom 0.5s linear, background 0.5s linear;
     }
     .vfader-thumb {
       position: absolute;
@@ -330,26 +330,33 @@
       line-height: 1;
     }
 
-    /* Channel label */
+    /* Channel label — vertical, inside fader track */
     .ch-label {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 4px;
       font-family: var(--mono);
-      font-size: 0.5rem;
+      font-size: 0.65rem;
       font-weight: 600;
       color: var(--muted);
-      text-align: center;
-      line-height: 1.15;
-      max-width: 40px;
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+      text-align: left;
+      max-height: calc(var(--fader-h) - 16px);
       overflow: hidden;
-      white-space: nowrap;
       text-overflow: ellipsis;
+      white-space: nowrap;
       cursor: pointer;
-      padding: 2px;
-      border-radius: 2px;
+      padding: 2px 0;
+      pointer-events: auto;
       user-select: none;
       -webkit-user-select: none;
+      opacity: 0.6;
+      z-index: 1;
     }
     .ch-label:active {
-      background: var(--accent-dim);
+      opacity: 1;
     }
 
     /* ── Color picker popover ──────────────────────────────────── */
@@ -494,6 +501,7 @@
       -webkit-overflow-scrolling: touch;
       padding: 10px 12px;
       background: var(--bg);
+      min-height: 0;
     }
     #scene-bank::-webkit-scrollbar { width: 4px; }
     #scene-bank::-webkit-scrollbar-track { background: transparent; }
@@ -579,6 +587,7 @@
       background: rgba(0,0,0,0.85);
       align-items: center;
       justify-content: center;
+      zoom: calc(1 / var(--ui-scale, 1));
     }
     #settings-panel.visible { display: flex; }
     .settings-box {
@@ -590,10 +599,11 @@
       max-width: 400px;
       max-height: 80vh;
       overflow-y: auto;
+      font-size: 14px;
     }
     .settings-box h2 {
       font-family: var(--mono);
-      font-size: 0.8rem;
+      font-size: 12px;
       font-weight: 700;
       color: var(--accent);
       text-transform: uppercase;
@@ -606,10 +616,14 @@
       justify-content: space-between;
       gap: 12px;
       margin-bottom: 12px;
+      min-width: 0;
+    }
+    .setting-row input[type=range] {
+      min-width: 0;
     }
     .setting-row label {
       font-family: var(--mono);
-      font-size: 0.65rem;
+      font-size: 10px;
       font-weight: 600;
       color: var(--muted);
       text-transform: uppercase;
@@ -622,7 +636,7 @@
       background: var(--groove);
       color: var(--text);
       font-family: var(--mono);
-      font-size: 0.75rem;
+      font-size: 11px;
       min-width: 160px;
     }
     .hist-item {
@@ -634,7 +648,7 @@
       border-radius: 4px;
       margin-bottom: 4px;
       font-family: var(--mono);
-      font-size: 0.6rem;
+      font-size: 9px;
     }
     .hist-item.active-upload {
       border-color: var(--accent);
@@ -642,7 +656,7 @@
     }
     .hist-info { flex: 1; min-width: 0; }
     .hist-name { color: var(--text); font-weight: 600; }
-    .hist-meta { color: var(--muted); font-size: 0.5rem; }
+    .hist-meta { color: var(--muted); font-size: 8px; }
     .hist-btn {
       padding: 3px 8px;
       border: 1px solid var(--border);
@@ -650,7 +664,7 @@
       background: var(--channel);
       color: var(--muted);
       font-family: var(--mono);
-      font-size: 0.55rem;
+      font-size: 9px;
       font-weight: 600;
       cursor: pointer;
     }
@@ -664,7 +678,7 @@
       flex: 1;
       min-width: 0;
       font-family: var(--mono);
-      font-size: 0.65rem;
+      font-size: 10px;
       color: var(--muted);
       background: var(--groove);
       border: 1px solid var(--border);
@@ -679,7 +693,7 @@
       padding: 4px 12px;
       font-family: var(--mono);
       font-weight: 600;
-      font-size: 0.6rem;
+      font-size: 9px;
       letter-spacing: 0.05em;
       cursor: pointer;
       margin-right: 8px;
@@ -720,7 +734,7 @@
       background: var(--channel);
       color: var(--text);
       font-family: var(--mono);
-      font-size: 0.7rem;
+      font-size: 11px;
       font-weight: 600;
       cursor: pointer;
       text-align: center;
@@ -891,8 +905,9 @@
        ══════════════════════════════════════════════════════════════════ */
     @media (max-width: 800px) {
       :root { --fader-w: 30px; --fader-h: clamp(80px, 18vh, 140px); }
+      .ch-strip { width: 30px; }
       .vfader-wrap { width: 22px; }
-      .ch-label { font-size: 0.45rem; max-width: 32px; }
+      .ch-label { font-size: 0.55rem; }
       #scene-grid { grid-template-columns: repeat(auto-fill, minmax(68px, 1fr)); }
       .scene-btn { height: 38px; font-size: 0.55rem; }
     }
@@ -927,7 +942,7 @@
       <div class="hdr-control">
         <button class="fx-btn" id="strobe-btn" onclick="toggleStrobe()">STROBE</button>
         <input type="range" id="strobe-slider" min="10" max="255" value="128"
-          oninput="strobeSpeedChanged(this.value)" class="strobe-slider" disabled>
+          oninput="strobeSpeedChanged(this.value)" class="strobe-slider">
       </div>
     </div>
   </div>
@@ -946,7 +961,7 @@
 </div>
 
 <!-- Settings panel -->
-<div id="settings-panel" onclick="if(event.target===this&&!uploading)toggleSettings()">
+<div id="settings-panel">
   <div class="settings-box">
     <h2>Settings</h2>
     <div class="setting-row">
@@ -962,7 +977,7 @@
         <div class="spin-val" id="master-fade-time-val">2.0</div>
         <button onclick="adjMasterFadeTime(0.5)">+</button>
       </div>
-      <span style="font-family:var(--mono);font-size:0.6rem;color:var(--muted)">sec</span>
+      <span style="font-family:var(--mono);font-size:9px;color:var(--muted)">sec</span>
     </div>
     <div class="setting-row" style="flex-direction:column;align-items:stretch;gap:8px">
       <label>Luminair file</label>
@@ -971,18 +986,18 @@
         <button class="fx-btn" onclick="uploadLuminair()" id="upload-btn">UPLOAD</button>
       </div>
       <div class="upload-progress" id="upload-progress"><div class="upload-progress-bar" id="upload-progress-bar"></div></div>
-      <div id="upload-status" style="font-family:var(--mono);font-size:0.65rem;color:var(--muted);min-height:1.2em"></div>
+      <div id="upload-status" style="font-family:var(--mono);font-size:10px;color:var(--muted);min-height:1.2em"></div>
     </div>
     <div class="setting-row" style="flex-direction:column;align-items:stretch;gap:8px;margin-top:8px">
       <label>Upload history</label>
       <div id="upload-history" style="max-height:160px;overflow-y:auto"></div>
       <div style="display:flex;gap:6px">
-        <select id="diff-a" style="flex:1;font-family:var(--mono);font-size:0.6rem;background:var(--groove);color:var(--text);border:1px solid var(--border);border-radius:3px;padding:4px"></select>
-        <span style="color:var(--muted);font-size:0.7rem;align-self:center">vs</span>
-        <select id="diff-b" style="flex:1;font-family:var(--mono);font-size:0.6rem;background:var(--groove);color:var(--text);border:1px solid var(--border);border-radius:3px;padding:4px"></select>
+        <select id="diff-a" style="flex:1;min-width:0;font-family:var(--mono);font-size:9px;background:var(--groove);color:var(--text);border:1px solid var(--border);border-radius:3px;padding:4px;overflow:hidden;text-overflow:ellipsis"></select>
+        <span style="color:var(--muted);font-size:11px;align-self:center;flex-shrink:0">vs</span>
+        <select id="diff-b" style="flex:1;min-width:0;font-family:var(--mono);font-size:9px;background:var(--groove);color:var(--text);border:1px solid var(--border);border-radius:3px;padding:4px;overflow:hidden;text-overflow:ellipsis"></select>
         <button class="fx-btn" onclick="showDiff()">DIFF</button>
       </div>
-      <div id="diff-result" style="font-family:var(--mono);font-size:0.6rem;color:var(--text);max-height:200px;overflow-y:auto;display:none;background:var(--groove);border:1px solid var(--border);border-radius:4px;padding:8px;white-space:pre-wrap"></div>
+      <div id="diff-result" style="font-family:var(--mono);font-size:9px;color:var(--text);max-height:200px;overflow-y:auto;display:none;background:var(--groove);border:1px solid var(--border);border-radius:4px;padding:8px;white-space:pre-wrap"></div>
     </div>
     <div class="setting-row" style="flex-direction:column;align-items:stretch;gap:8px">
       <label>Logo</label>
@@ -997,17 +1012,23 @@
     </div>
     <div class="setting-row">
       <label>Font size</label>
-      <input type="range" id="font-size-slider" min="10" max="22" value="14" step="1"
+      <input type="range" id="font-size-slider" min="10" max="30" value="14" step="1"
         oninput="setFontSize(this.value)" style="flex:1;accent-color:var(--accent)">
-      <span id="font-size-val" style="font-family:var(--mono);font-size:0.7rem;min-width:30px;text-align:right">14px</span>
+      <span id="font-size-val" style="font-family:var(--mono);font-size:11px;min-width:30px;text-align:right">14px</span>
     </div>
     <div class="setting-row">
       <label>UI scale</label>
       <input type="range" id="ui-scale-slider" min="80" max="150" value="100" step="5"
         oninput="setUIScale(this.value)" style="flex:1;accent-color:var(--accent)">
-      <span id="ui-scale-val" style="font-family:var(--mono);font-size:0.7rem;min-width:36px;text-align:right">100%</span>
+      <span id="ui-scale-val" style="font-family:var(--mono);font-size:11px;min-width:36px;text-align:right">100%</span>
     </div>
-    <button class="settings-close" onclick="toggleSettings()">CLOSE</button>
+    <div id="settings-actions">
+      <button class="settings-close" id="settings-close-btn" onclick="settingsClose()">CLOSE</button>
+      <div id="settings-save-cancel" style="display:none;gap:8px">
+        <button class="settings-close" style="flex:1;background:var(--accent-dim);color:var(--accent);border-color:rgba(232,160,32,0.3)" onclick="settingsSave()">SAVE</button>
+        <button class="settings-close" style="flex:1" onclick="settingsCancel()">CANCEL</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1222,13 +1243,12 @@ function buildChannel(f) {
   intWrap.classList.add('int');
   pair.appendChild(intWrap);
 
-  // Label
+  // Label — inside fader track, vertical
   let label = f.name
     .replace(/^N?\s*\d+\s*N?\s*/, '')
     .replace(/^N\s+/, '')
     .trim();
   if (!label) label = f.name;
-  if (label.length > 8) label = label.substring(0, 7) + '…';
 
   const labelEl = document.createElement('div');
   labelEl.className = 'ch-label';
@@ -1240,9 +1260,11 @@ function buildChannel(f) {
     labelEl.onclick = (e) => openPopover(f, e);
   }
 
+  // Place label inside the intensity fader wrap
+  intWrap.appendChild(labelEl);
+
   el.appendChild(vals);
   el.appendChild(pair);
-  el.appendChild(labelEl);
   return el;
 }
 
@@ -1272,23 +1294,49 @@ function makeFader(fid, suffix, onChange) {
     onChange(val);
   };
 
+  // Directional lock: delay pointer capture until gesture direction is clear.
+  // Vertical = fader control, horizontal = scroll the fader strip.
+  const DIR_THRESHOLD = 8;
+  let pendingDir = null; // { id, x, y } while waiting for direction
+
   wrap.addEventListener('pointerdown', (e) => {
-    // touch-action: pan-x means the browser only fires pointer events
-    // if the gesture is vertical. Horizontal swipes become native scroll.
-    wrap.setPointerCapture(e.pointerId);
-    faderTouching[touchKey] = true;
-    wrap.classList.remove('smooth');
-    setFromY(e.clientY);
+    pendingDir = { id: e.pointerId, x: e.clientX, y: e.clientY };
   });
   wrap.addEventListener('pointermove', (e) => {
+    if (pendingDir && pendingDir.id === e.pointerId) {
+      const dx = Math.abs(e.clientX - pendingDir.x);
+      const dy = Math.abs(e.clientY - pendingDir.y);
+      if (dy > DIR_THRESHOLD && dy > dx) {
+        // Vertical — lock to fader
+        wrap.setPointerCapture(e.pointerId);
+        faderTouching[touchKey] = true;
+        wrap.classList.remove('smooth');
+        setFromY(e.clientY);
+        pendingDir = null;
+      } else if (dx > DIR_THRESHOLD) {
+        // Horizontal — let scroll happen
+        pendingDir = null;
+      }
+      return;
+    }
     if (!faderTouching[touchKey]) return;
     setFromY(e.clientY);
   });
   wrap.addEventListener('pointerup', () => {
+    if (pendingDir) {
+      // Tap with no drag — treat as a fader set
+      wrap.setPointerCapture(pendingDir.id);
+      faderTouching[touchKey] = true;
+      wrap.classList.remove('smooth');
+      // Use the original Y from pointerdown
+      setFromY(pendingDir.y);
+    }
+    pendingDir = null;
     faderTouching[touchKey] = false;
     faderCooldown[touchKey] = Date.now();
   });
   wrap.addEventListener('pointercancel', () => {
+    pendingDir = null;
     faderTouching[touchKey] = false;
     faderCooldown[touchKey] = Date.now();
   });
@@ -1334,15 +1382,18 @@ function _syncFadersInner() {
     const hasW = fixHasWhite(f);
     const intName = fixIntensityName(f);
 
-    // Determine fixture colour for fill and dot
-    const r = levels.Red || 0, g = levels.Green || 0, b = levels.Blue || 0;
-    const w = levels.White || 0;
+    // Determine fixture colour for fill and dot, scaled by master
+    const mf = (state.master || 0) / 255;
+    const r = Math.round((levels.Red || 0) * mf);
+    const g = Math.round((levels.Green || 0) * mf);
+    const b = Math.round((levels.Blue || 0) * mf);
+    const w = Math.round((levels.White || 0) * mf);
     let fillColor = 'rgba(255,255,255,0.5)';
     if (hasRGB) {
       const mx = Math.max(r, g, b);
       if (mx > 0) fillColor = 'rgba(' + r + ',' + g + ',' + b + ',0.7)';
     } else if (hasW && w > 0) {
-      fillColor = 'rgba(255,255,255,0.6)';
+      fillColor = 'rgba(' + w + ',' + w + ',' + w + ',0.6)';
     }
 
     if (!isFaderLocked('int-' + f.id)) {
@@ -1605,22 +1656,8 @@ function renderScenes() {
   grid.innerHTML = '';
   const filtered = scenes.filter(s => !isSceneHidden(s.name));
 
-  // Restore saved order by scene ID (stable now that DB is source of truth)
-  try {
-    const saved = localStorage.getItem('ltg-scene-order');
-    if (saved) {
-      const savedIds = JSON.parse(saved);
-      const idSet = new Set(filtered.map(s => s.id));
-      const ordered = [];
-      savedIds.forEach(id => { if (idSet.has(id)) ordered.push(id); });
-      filtered.forEach(s => { if (!ordered.includes(s.id)) ordered.push(s.id); });
-      sceneOrder = ordered;
-    } else {
-      sceneOrder = filtered.map(s => s.id);
-    }
-  } catch(_) {
-    sceneOrder = filtered.map(s => s.id);
-  }
+  // Use API order (scenes arrive pre-sorted by position from DB)
+  sceneOrder = filtered.map(s => s.id);
 
   const sceneMap = {};
   filtered.forEach(s => { sceneMap[s.id] = s; });
@@ -1671,7 +1708,11 @@ function renderScenes() {
       const toIdx = sceneOrder.indexOf(targetId);
       sceneOrder.splice(fromIdx, 1);
       sceneOrder.splice(toIdx, 0, draggedId);
-      try { localStorage.setItem('ltg-scene-order', JSON.stringify(sceneOrder)); } catch(_) {}
+      api('/api/scenes/reorder', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ order: sceneOrder })
+      });
       renderScenes();
     });
 
@@ -2002,7 +2043,7 @@ function updateFxButtons() {
     strobeBtn.style.setProperty('--strobe-period', Math.max(0.05, period) + 's');
   }
   const strobeSlider = document.getElementById('strobe-slider');
-  strobeSlider.disabled = !strobeOn;
+  strobeSlider.classList.toggle('strobe-active', strobeOn);
   if (state.strobe_speed != null && document.activeElement !== strobeSlider) {
     strobeSlider.value = state.strobe_speed;
   }
@@ -2064,6 +2105,7 @@ function updateMasterFadeBtns() {
 }
 
 function adjMasterFadeTime(delta) {
+  markSettingsDirty();
   masterFadeTime = Math.max(0.5, Math.round((masterFadeTime + delta) * 10) / 10);
   document.getElementById('master-fade-time-val').textContent =
     masterFadeTime % 1 === 0 ? masterFadeTime + '.0' : masterFadeTime;
@@ -2078,11 +2120,87 @@ function adjMasterFadeTime(delta) {
    SETTINGS
    ═══════════════════════════════════════════════════════════════════════════ */
 
+let settingsDirty = false;
+let settingsSnapshot = {};
+
+function markSettingsDirty() {
+  if (settingsDirty) return;
+  settingsDirty = true;
+  document.getElementById('settings-close-btn').style.display = 'none';
+  const sc = document.getElementById('settings-save-cancel');
+  sc.style.display = 'flex';
+}
+
+function settingsClose() {
+  document.getElementById('settings-panel').classList.remove('visible');
+}
+
+function settingsSave() {
+  // Changes already applied live — just close
+  document.getElementById('settings-panel').classList.remove('visible');
+}
+
+function settingsCancel() {
+  // Revert all settings to snapshot
+  const s = settingsSnapshot;
+  setFontSizeQuiet(s.fontSize);
+  setUIScaleQuiet(s.uiScale);
+  if (s.masterFadeTime !== masterFadeTime) {
+    masterFadeTime = s.masterFadeTime;
+    document.getElementById('master-fade-time-val').textContent =
+      masterFadeTime % 1 === 0 ? masterFadeTime + '.0' : masterFadeTime;
+    api('/api/settings', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ master_fade_time: masterFadeTime })
+    });
+  }
+  if (s.defaultScene !== document.getElementById('default-scene-select').value) {
+    document.getElementById('default-scene-select').value = s.defaultScene;
+    saveDefaultSceneQuiet(s.defaultScene);
+  }
+  if (s.wakeLock !== wakeLockActive) {
+    toggleWakeLockQuiet();
+  }
+  document.getElementById('settings-panel').classList.remove('visible');
+}
+
+// Quiet versions that don't trigger markSettingsDirty
+function setFontSizeQuiet(px) {
+  document.documentElement.style.fontSize = px + 'px';
+  document.getElementById('font-size-slider').value = px;
+  document.getElementById('font-size-val').textContent = px + 'px';
+  try { localStorage.setItem('ltg-font-size', px); } catch(_) {}
+}
+function setUIScaleQuiet(pct) {
+  document.documentElement.style.zoom = pct / 100;
+  document.documentElement.style.setProperty('--ui-scale', pct / 100);
+  document.getElementById('ui-scale-slider').value = pct;
+  document.getElementById('ui-scale-val').textContent = pct + '%';
+  try { localStorage.setItem('ltg-ui-scale', pct); } catch(_) {}
+}
+function saveDefaultSceneQuiet(val) {
+  const sceneId = val === '' ? null : parseInt(val);
+  api('/api/settings', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ default_scene: sceneId })
+  });
+}
+function toggleWakeLockQuiet() {
+  wakeLockActive = !wakeLockActive;
+  if (wakeLockActive) { enableWakeLock(); } else { disableWakeLock(); }
+  try { localStorage.setItem('ltg-wake-lock', wakeLockActive ? '1' : '0'); } catch(_) {}
+}
+
 async function toggleSettings() {
   if (uploading) return;  // prevent closing during upload
   const panel = document.getElementById('settings-panel');
   const isOpen = panel.classList.toggle('visible');
   if (isOpen) {
+    settingsDirty = false;
+    document.getElementById('settings-close-btn').style.display = '';
+    document.getElementById('settings-save-cancel').style.display = 'none';
     // Populate scene dropdown
     const select = document.getElementById('default-scene-select');
     select.innerHTML = '<option value="">None (dark)</option>';
@@ -2120,10 +2238,19 @@ async function toggleSettings() {
       document.getElementById('ui-scale-slider').value = sc;
       document.getElementById('ui-scale-val').textContent = sc + '%';
     } catch(_) {}
+    // Snapshot current state for cancel/revert
+    settingsSnapshot = {
+      defaultScene: select.value,
+      masterFadeTime: masterFadeTime,
+      fontSize: localStorage.getItem('ltg-font-size') || '14',
+      uiScale: localStorage.getItem('ltg-ui-scale') || '100',
+      wakeLock: wakeLockActive,
+    };
   }
 }
 
 function saveDefaultScene(val) {
+  markSettingsDirty();
   const sceneId = val === '' ? null : parseInt(val);
   api('/api/settings', {
     method: 'POST',
@@ -2140,12 +2267,15 @@ function setFontSize(px) {
   document.documentElement.style.fontSize = px + 'px';
   document.getElementById('font-size-val').textContent = px + 'px';
   try { localStorage.setItem('ltg-font-size', px); } catch(_) {}
+  markSettingsDirty();
 }
 
 function setUIScale(pct) {
   document.documentElement.style.zoom = pct / 100;
+  document.documentElement.style.setProperty('--ui-scale', pct / 100);
   document.getElementById('ui-scale-val').textContent = pct + '%';
   try { localStorage.setItem('ltg-ui-scale', pct); } catch(_) {}
+  markSettingsDirty();
 }
 
 // Restore on load
@@ -2153,7 +2283,10 @@ try {
   const fs = localStorage.getItem('ltg-font-size');
   if (fs) { document.documentElement.style.fontSize = fs + 'px'; }
   const sc = localStorage.getItem('ltg-ui-scale');
-  if (sc) { document.documentElement.style.zoom = parseInt(sc) / 100; }
+  if (sc) {
+    document.documentElement.style.zoom = parseInt(sc) / 100;
+    document.documentElement.style.setProperty('--ui-scale', parseInt(sc) / 100);
+  }
 } catch(_) {}
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -2164,6 +2297,7 @@ let wakeLockActive = false;
 let wakeLockVideo = null;
 
 function toggleWakeLock() {
+  markSettingsDirty();
   wakeLockActive = !wakeLockActive;
   if (wakeLockActive) {
     enableWakeLock();
@@ -2216,15 +2350,21 @@ try {
 } catch(_) {}
 
 function hardReload() {
-  // Unregister service worker and force a clean reload
+  // Unregister service worker, clear caches, then force reload
+  const doReload = () => {
+    if ('caches' in window) {
+      caches.keys().then(names => Promise.all(names.map(n => caches.delete(n))))
+        .then(() => location.reload());
+    } else {
+      location.reload();
+    }
+  };
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.getRegistrations().then(regs => {
-      regs.forEach(r => r.unregister());
-    }).then(() => {
-      location.href = location.href.split('?')[0] + '?t=' + Date.now();
-    });
+      return Promise.all(regs.map(r => r.unregister()));
+    }).then(doReload).catch(doReload);
   } else {
-    location.href = location.href.split('?')[0] + '?t=' + Date.now();
+    doReload();
   }
 }
 

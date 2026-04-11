@@ -81,6 +81,16 @@ def init_db():
         conn.execute('ALTER TABLE scene_overrides ADD COLUMN dmx_values BLOB')
     except Exception:
         pass
+    try:
+        conn.execute('ALTER TABLE scenes ADD COLUMN position INTEGER DEFAULT 0')
+    except Exception:
+        pass
+    # Backfill position for existing scenes that have position=0
+    rows = conn.execute('SELECT id FROM scenes WHERE position=0 ORDER BY id').fetchall()
+    if rows:
+        for i, row in enumerate(rows):
+            conn.execute('UPDATE scenes SET position=? WHERE id=?', (i, row['id']))
+        conn.commit()
     conn.close()
     logger.info('Database initialized')
 
@@ -278,12 +288,12 @@ def store_scenes(scenes):
     """Write full scene list to DB, replacing existing."""
     conn = _connect()
     conn.execute('DELETE FROM scenes')
-    for s in scenes:
+    for i, s in enumerate(scenes):
         conn.execute('''INSERT INTO scenes (id, name, dmx_values, channel_mask,
-            fade_in, fade_out, button_color, locked, master_level)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+            fade_in, fade_out, button_color, locked, master_level, position)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
             (s.id, s.name, bytes(s.dmx_values), json.dumps(sorted(s.channel_mask)),
-             s.fade_in, s.fade_out, s.button_color, int(s.locked), s.master_level))
+             s.fade_in, s.fade_out, s.button_color, int(s.locked), s.master_level, i))
     conn.commit()
     conn.close()
     logger.info('Stored %d scenes to DB', len(scenes))
@@ -300,7 +310,7 @@ def load_fixtures():
 def load_scenes():
     """Load scenes from DB. Returns list of dicts or empty list."""
     conn = _connect()
-    rows = conn.execute('SELECT * FROM scenes ORDER BY id').fetchall()
+    rows = conn.execute('SELECT * FROM scenes ORDER BY position, id').fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
@@ -341,6 +351,15 @@ def add_scene(scene):
     conn.commit()
     conn.close()
     return new_id
+
+
+def reorder_scenes(scene_ids):
+    """Set scene positions from an ordered list of IDs."""
+    conn = _connect()
+    for i, sid in enumerate(scene_ids):
+        conn.execute('UPDATE scenes SET position=? WHERE id=?', (i, sid))
+    conn.commit()
+    conn.close()
 
 
 def save_scene_fixtures(scene_id, fixture_ids):
