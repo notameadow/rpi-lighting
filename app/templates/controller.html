@@ -755,19 +755,25 @@
     /* ══════════════════════════════════════════════════════════════════
        SCENE CONTEXT MENU
        ══════════════════════════════════════════════════════════════════ */
-    #scene-ctx {
+    #scene-ctx-overlay {
       display: none;
       position: fixed;
+      inset: 0;
       z-index: 300;
+      background: rgba(0,0,0,0.85);
+      align-items: center;
+      justify-content: center;
+    }
+    #scene-ctx-overlay.visible { display: flex; }
+    #scene-ctx {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 12px 14px;
+      border-radius: 8px;
+      padding: 16px 18px;
       box-shadow: 0 8px 32px rgba(0,0,0,0.8);
-      width: 320px;
-      max-width: calc(100vw - 16px);
-      max-height: 66vh;
-      overflow-x: hidden;
+      width: 90%;
+      max-width: 380px;
+      max-height: 90vh;
       overflow-y: auto;
       scrollbar-width: thin;
       scrollbar-color: var(--border) transparent;
@@ -778,7 +784,6 @@
       background: var(--border);
       border-radius: 2px;
     }
-    #scene-ctx.visible { display: block; }
     #scene-ctx h3 {
       font-family: var(--mono);
       font-size: 0.65rem;
@@ -874,17 +879,16 @@
     .ctx-preset:active { background: var(--border); }
     .ctx-preset.active { border-color: var(--accent); color: var(--accent); }
     .ctx-fixtures {
-      display: flex;
-      flex-wrap: wrap;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
       gap: 3px;
-      max-height: 80px;
-      overflow-y: auto;
     }
     .ctx-fix-chip {
-      padding: 3px 6px;
+      padding: 4px 4px;
       border-radius: 3px;
       font-family: var(--mono);
       font-size: 0.5rem;
+      text-align: center;
       font-weight: 600;
       background: var(--groove);
       color: var(--muted);
@@ -954,6 +958,7 @@
       <img id="header-logo" src="/logo" alt="">
       <div id="active-scene-indicator"></div>
       <div class="hdr-row1-right">
+        <button class="fx-btn" id="new-scene-btn" onclick="showNewSceneDialog()">+ NEW</button>
         <button class="fx-btn" id="edit-mode-btn" onclick="toggleEditMode()">EDIT</button>
         <button class="fx-btn icon-btn" id="settings-btn" onclick="toggleSettings()" title="Settings">&#9881;</button>
         <button class="fx-btn icon-btn status-reload" id="reload-btn" onclick="hardReload()" title="Reload">&#8635;</button>
@@ -1061,10 +1066,30 @@
   </div>
 </div>
 
+<!-- New scene dialog -->
+<div id="new-scene-panel" style="display:none;position:fixed;inset:0;z-index:400;background:rgba(0,0,0,0.85);align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px;width:90%;max-width:340px;">
+    <h2 style="font-family:var(--mono);font-size:12px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:14px;">New Scene from Current State</h2>
+    <div style="margin-bottom:12px;">
+      <label style="font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:4px;">Name</label>
+      <input type="text" id="new-scene-name" style="width:100%;padding:8px;background:var(--groove);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;" placeholder="Scene name">
+    </div>
+    <div style="margin-bottom:14px;">
+      <label style="font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:6px;">Colour</label>
+      <div id="new-scene-colours" style="display:grid;grid-template-columns:repeat(8,1fr);gap:4px;"></div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="fx-btn" style="flex:1;justify-content:center;background:var(--accent-dim);color:var(--accent);border-color:rgba(232,160,32,0.3)" onclick="saveNewScene()">SAVE</button>
+      <button class="fx-btn" style="flex:1;justify-content:center" onclick="hideNewSceneDialog()">CANCEL</button>
+    </div>
+  </div>
+</div>
+
 <!-- Backdrop (dismisses any open popover/context menu) -->
 <div id="backdrop" onclick="closeAll()"></div>
 
 <!-- Scene context menu -->
+<div id="scene-ctx-overlay" onclick="if(event.target===this)closeSceneCtx()">
 <div id="scene-ctx">
   <h3 id="ctx-scene-name">—</h3>
   <div class="ctx-row">
@@ -1087,13 +1112,19 @@
     <div class="ctx-preset" onclick="ctxSetFade(10)">10s</div>
   </div>
   <div class="ctx-row" style="margin-top:4px">
+    <label>Colour</label>
+  </div>
+  <div id="ctx-colours" style="display:grid;grid-template-columns:repeat(8,1fr);gap:4px;margin-bottom:10px;"></div>
+  <div class="ctx-row" style="margin-top:4px">
     <label>Controls</label>
   </div>
   <div class="ctx-fixtures" id="ctx-fixtures"></div>
-  <div class="pop-actions" style="margin-top:10px">
+  <div class="pop-actions" style="margin-top:12px">
     <button onclick="ctxCopy()">COPY</button>
     <button onclick="ctxDelete()" style="color:var(--danger);border-color:var(--danger)">DELETE</button>
   </div>
+  <button class="settings-close" style="margin-top:12px" onclick="closeSceneCtx()">CLOSE</button>
+</div>
 </div>
 
 <!-- Color picker popover -->
@@ -1852,6 +1883,62 @@ async function recallScene(id) {
 
 let editMode = false;
 
+/* ── New Scene Dialog ──────────────────────────────────────────────────── */
+const NEW_SCENE_COLOURS = [
+  'rgba(255,255,255,1)', 'rgba(255,60,60,1)', 'rgba(255,160,30,1)', 'rgba(255,230,50,1)',
+  'rgba(60,200,60,1)', 'rgba(50,180,255,1)', 'rgba(140,80,255,1)', 'rgba(200,50,200,1)',
+  'rgba(180,120,80,1)', 'rgba(255,140,140,1)', 'rgba(100,220,200,1)', 'rgba(200,200,200,1)',
+  'rgba(80,80,80,1)', 'rgba(160,30,30,1)', 'rgba(30,80,160,1)', 'rgba(60,120,60,1)',
+];
+let _newSceneColour = NEW_SCENE_COLOURS[0];
+
+function showNewSceneDialog() {
+  const panel = document.getElementById('new-scene-panel');
+  panel.style.display = 'flex';
+  document.getElementById('new-scene-name').value = '';
+  document.getElementById('new-scene-name').focus();
+  _newSceneColour = NEW_SCENE_COLOURS[0];
+
+  const grid = document.getElementById('new-scene-colours');
+  grid.innerHTML = '';
+  NEW_SCENE_COLOURS.forEach(c => {
+    const sw = document.createElement('div');
+    sw.style.cssText = 'aspect-ratio:1;border-radius:4px;cursor:pointer;border:2px solid transparent;background:' + c;
+    if (c === _newSceneColour) sw.style.borderColor = 'var(--accent)';
+    sw.onclick = () => {
+      _newSceneColour = c;
+      grid.querySelectorAll('div').forEach(d => { d.style.borderColor = 'transparent'; });
+      sw.style.borderColor = 'var(--accent)';
+    };
+    grid.appendChild(sw);
+  });
+}
+
+function hideNewSceneDialog() {
+  document.getElementById('new-scene-panel').style.display = 'none';
+}
+
+async function saveNewScene() {
+  const name = document.getElementById('new-scene-name').value.trim();
+  if (!name) { document.getElementById('new-scene-name').focus(); return; }
+  const resp = await api('/api/scene/create', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ name, button_color: _newSceneColour })
+  });
+  if (resp && resp.ok) {
+    const data = await resp.json();
+    // Reload scenes from server
+    const sResp = await api('/api/scenes');
+    if (sResp && sResp.ok) {
+      scenes = await sResp.json();
+      sceneOrder = []; // reset so renderScenes uses server order
+      renderScenes();
+    }
+  }
+  hideNewSceneDialog();
+}
+
 function toggleEditMode() {
   editMode = !editMode;
   const btn = document.getElementById('edit-mode-btn');
@@ -1973,30 +2060,28 @@ function openSceneCtx(sceneId, x, y) {
     ctxFix.appendChild(chip);
   });
 
-  const ctx = document.getElementById('scene-ctx');
-  // Position: clamp to viewport
-  const vpH = window.visualViewport ? window.visualViewport.height : document.documentElement.clientHeight;
-  const maxH = Math.floor(vpH * 0.66);
-  // Position the menu, accounting for CSS zoom
-  const zoom = parseFloat(document.documentElement.style.zoom) || 1;
-  const vw = window.innerWidth / zoom;
-  const vh = window.innerHeight / zoom;
-  const menuW = 320 + 30; // width + padding + border
+  // Colour picker
+  const colGrid = document.getElementById('ctx-colours');
+  colGrid.innerHTML = '';
+  NEW_SCENE_COLOURS.forEach(c => {
+    const sw = document.createElement('div');
+    sw.style.cssText = 'aspect-ratio:1;border-radius:4px;cursor:pointer;border:2px solid transparent;background:' + c;
+    if (c === scene.button_color) sw.style.borderColor = 'var(--accent)';
+    sw.onclick = () => {
+      scene.button_color = c;
+      colGrid.querySelectorAll('div').forEach(d => { d.style.borderColor = 'transparent'; });
+      sw.style.borderColor = 'var(--accent)';
+      api('/api/scene/' + sceneId + '/color', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ button_color: c })
+      });
+      renderScenes();
+    };
+    colGrid.appendChild(sw);
+  });
 
-  let left = x / zoom;
-  let top = y / zoom;
-
-  if (left + menuW > vw - 8) left = vw - menuW - 8;
-  if (top + maxH > vh - 8) top = vh - maxH - 8;
-  if (left < 8) left = 8;
-  if (top < 8) top = 8;
-
-  ctx.style.left = left + 'px';
-  ctx.style.top = top + 'px';
-  ctx.style.right = 'auto';
-  ctx.classList.add('visible');
-
-  document.getElementById('backdrop').classList.add('visible');
+  document.getElementById('scene-ctx-overlay').classList.add('visible');
 
   // Save on input change
   fadeInput.onchange = () => {
@@ -2091,7 +2176,7 @@ async function loadScenes() {
 }
 
 function closeSceneCtx() {
-  document.getElementById('scene-ctx').classList.remove('visible');
+  document.getElementById('scene-ctx-overlay').classList.remove('visible');
   ctxSceneId = null;
 }
 

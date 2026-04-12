@@ -154,6 +154,36 @@ def copy_scene(scene_id):
     return jsonify({'ok': True, 'id': new_id, 'name': new_name})
 
 
+@api_bp.route('/api/scene/create', methods=['POST'])
+@require_auth
+def create_scene():
+    """Create a new scene from the current DMX state."""
+    data = request.get_json(silent=True) or {}
+    name = data.get('name', '').strip()
+    if not name:
+        return jsonify({'ok': False, 'error': 'name required'}), 400
+    button_color = data.get('button_color', 'rgba(100,100,100,1)')
+    fade_in = float(data.get('fade_in', 2.0))
+
+    dmx_values, channel_mask = _engine().snapshot_current()
+
+    from app.luminair.models import Scene
+    new_scene = Scene(
+        id=0, name=name,
+        dmx_values=dmx_values, channel_mask=channel_mask,
+        fade_in=fade_in, fade_out=0.2,
+        button_color=button_color, locked=False, master_level=1.0,
+    )
+    new_id = db_add_scene(new_scene)
+    new_scene.id = new_id
+    ctrl = _controller()
+    ctrl.scenes.append(new_scene)
+    _engine().set_scenes(ctrl.scenes)
+
+    logger.info('Created scene %d "%s" from current state (%d channels)', new_id, name, len(channel_mask))
+    return jsonify({'ok': True, 'id': new_id, 'name': name})
+
+
 @api_bp.route('/api/scene/<int:scene_id>', methods=['DELETE'])
 @require_auth
 def delete_scene(scene_id):
@@ -212,6 +242,23 @@ def set_scene_fade(scene_id):
             s.fade_in = max(0.0, fade_in)
             update_scene(scene_id, fade_in=s.fade_in)
             return jsonify({'ok': True, 'fade_in': s.fade_in})
+    return jsonify({'ok': False, 'error': 'scene not found'}), 404
+
+
+@api_bp.route('/api/scene/<int:scene_id>/color', methods=['POST'])
+@require_auth
+def set_scene_color(scene_id):
+    """Update a scene's button colour."""
+    data = request.get_json(silent=True) or {}
+    color = data.get('button_color', '').strip()
+    if not color:
+        return jsonify({'ok': False, 'error': 'button_color required'}), 400
+    ctrl = _controller()
+    for s in ctrl.scenes:
+        if s.id == scene_id:
+            s.button_color = color
+            update_scene(scene_id, button_color=color)
+            return jsonify({'ok': True})
     return jsonify({'ok': False, 'error': 'scene not found'}), 404
 
 

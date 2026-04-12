@@ -366,6 +366,25 @@ class DMXEngine:
                 result[fix.id] = channels
             return result
 
+    def snapshot_current(self):
+        """Return a copy of the current DMX buffer (pre-master) and the set of non-zero channels."""
+        with self._lock:
+            buf = bytes(self._current)
+            mask = set()
+            for fix in self._fixtures:
+                base = fix.dmx_address - 1
+                has_nonzero = False
+                for offset in range(len(fix.profile.channels)):
+                    idx = base + offset
+                    if 0 <= idx < DMX_CHANNELS and self._current[idx] > 0:
+                        has_nonzero = True
+                if has_nonzero:
+                    for offset in range(len(fix.profile.channels)):
+                        idx = base + offset
+                        if 0 <= idx < DMX_CHANNELS:
+                            mask.add(idx)
+            return buf, mask
+
     def get_dmx_output(self):
         """Return current 512-byte output for debug."""
         with self._lock:
