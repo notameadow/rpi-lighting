@@ -8,7 +8,10 @@ from app.database import (get_setting, set_setting, update_scene,
                           store_scenes, reorder_scenes,
                           add_upload, get_uploads, set_active_upload, delete_upload as db_delete_upload,
                           add_fixture as db_add_fixture, update_fixture as db_update_fixture,
-                          delete_fixture as db_delete_fixture)
+                          delete_fixture as db_delete_fixture,
+                          get_fixture_groups, add_fixture_group, update_fixture_group,
+                          delete_fixture_group, reorder_fixture_groups,
+                          reorder_fixtures_in_group, move_fixture_to_group)
 
 logger = logging.getLogger('lighting.api')
 
@@ -286,21 +289,124 @@ def rename_scene(scene_id):
 # Fixtures
 # ------------------------------------------------------------------
 
+# ------------------------------------------------------------------
+# Fixture groups
+# ------------------------------------------------------------------
+
+@api_bp.route('/api/groups')
+@require_auth
+def list_groups():
+    groups = get_fixture_groups()
+    return jsonify(groups)
+
+
+@api_bp.route('/api/group', methods=['POST'])
+@require_auth
+def create_group():
+    data = request.get_json(silent=True) or {}
+    name = data.get('name', '').strip()
+    if not name:
+        return jsonify({'ok': False, 'error': 'name required'}), 400
+    gid = add_fixture_group(name)
+    logger.info('Created fixture group %d "%s"', gid, name)
+    return jsonify({'ok': True, 'id': gid})
+
+
+@api_bp.route('/api/group/<int:group_id>', methods=['PUT'])
+@require_auth
+def edit_group(group_id):
+    data = request.get_json(silent=True) or {}
+    updates = {}
+    if 'name' in data:
+        updates['name'] = data['name'].strip()
+    if updates:
+        update_fixture_group(group_id, **updates)
+    return jsonify({'ok': True})
+
+
+@api_bp.route('/api/group/<int:group_id>', methods=['DELETE'])
+@require_auth
+def remove_group(group_id):
+    delete_fixture_group(group_id)
+    # Reload fixtures into controller (group assignments changed)
+    _reload_fixtures()
+    logger.info('Deleted fixture group %d', group_id)
+    return jsonify({'ok': True})
+
+
+@api_bp.route('/api/groups/reorder', methods=['POST'])
+@require_auth
+def reorder_groups():
+    data = request.get_json(silent=True) or {}
+    order = data.get('order')
+    if not order:
+        return jsonify({'ok': False, 'error': 'order required'}), 400
+    reorder_fixture_groups(order)
+    return jsonify({'ok': True})
+
+
+@api_bp.route('/api/fixtures/reorder', methods=['POST'])
+@require_auth
+def reorder_fixtures():
+    data = request.get_json(silent=True) or {}
+    order = data.get('order')
+    if not order:
+        return jsonify({'ok': False, 'error': 'order required'}), 400
+    reorder_fixtures_in_group(order)
+    _reload_fixtures()
+    return jsonify({'ok': True})
+
+
+@api_bp.route('/api/fixture/<int:fixture_id>/move', methods=['POST'])
+@require_auth
+def move_fixture(fixture_id):
+    data = request.get_json(silent=True) or {}
+    group_id = data.get('group_id')  # null = ungrouped
+    move_fixture_to_group(fixture_id, group_id)
+    _reload_fixtures()
+    return jsonify({'ok': True})
+
+
+def _reload_fixtures():
+    """Reload fixtures from DB into controller and engine."""
+    from app.database import load_fixtures
+    from app.luminair.models import Fixture, ChannelProfile
+    import json
+    ctrl = _controller()
+    rows = load_fixtures()
+    ctrl.fixtures = []
+    for r in rows:
+        channels = json.loads(r['profile_channels']) if isinstance(r['profile_channels'], str) else r['profile_channels']
+        fix = Fixture(id=r['id'], name=r['name'], model=r['model'] or '',
+                      manufacturer=r['manufacturer'] or '',
+                      dmx_address=r['dmx_address'], channel_count=r['channel_count'] or len(channels),
+                      profile=ChannelProfile(channels=channels),
+                      group=r.get('grp', '') or '')
+        ctrl.fixtures.append(fix)
+    _engine().set_fixtures(ctrl.fixtures)
+
+
 @api_bp.route('/api/fixtures')
 @require_auth
 def fixtures():
-    ctrl = _controller()
+    from app.database import load_fixtures
+    rows = load_fixtures()
+    import json
     result = []
-    for f in ctrl.fixtures:
+    for r in rows:
+        channels = json.loads(r['profile_channels']) if isinstance(r['profile_channels'], str) else r['profile_channels']
         result.append({
-            'id': f.id,
-            'name': f.name,
-            'model': f.model,
-            'manufacturer': f.manufacturer,
-            'dmx_address': f.dmx_address,
-            'channel_count': f.channel_count,
-            'channels': f.profile.channels,
-            'group': f.group,
+            'id': r['id'],
+            'name': r['name'],
+            'model': r['model'] or '',
+            'manufacturer': r['manufacturer'] or '',
+            'dmx_address': r['dmx_address'],
+            'channel_count': r['channel_count'] or len(channels),
+            'channels': channels,
+            'group': r.get('grp', ''),
+            'group_id': r.get('group_id'),
+            'group_name': r.get('group_name', ''),
+            'position': r.get('position', 0),
         })
     return jsonify(result)
 
@@ -317,18 +423,12 @@ def create_fixture():
     manufacturer = data.get('manufacturer', '').strip()
     dmx_address = int(data.get('dmx_address', 1))
     channels = data.get('channels', ['Intensity'])
-    group = data.get('group', 'custom')
+    group_id = data.get('group_id')
+    if group_id is not None:
+        group_id = int(group_id)
 
-    new_id = db_add_fixture(name, model, manufacturer, dmx_address, channels, group)
-
-    # Reload into controller
-    from app.luminair.models import Fixture, ChannelProfile
-    fix = Fixture(id=new_id, name=name, model=model, manufacturer=manufacturer,
-                  dmx_address=dmx_address, channel_count=len(channels),
-                  profile=ChannelProfile(channels=channels), group=group)
-    ctrl = _controller()
-    ctrl.fixtures.append(fix)
-    _engine().set_fixtures(ctrl.fixtures)
+    new_id = db_add_fixture(name, model, manufacturer, dmx_address, channels, '', group_id)
+    _reload_fixtures()
 
     logger.info('Created fixture %d "%s" at DMX %d', new_id, name, dmx_address)
     return jsonify({'ok': True, 'id': new_id})
@@ -370,10 +470,13 @@ def edit_fixture(fixture_id):
     if 'group' in data:
         fix.group = data['group']
         updates['group'] = fix.group
+    if 'group_id' in data:
+        gid = data['group_id']
+        updates['group_id'] = int(gid) if gid else None
 
     if updates:
         db_update_fixture(fixture_id, **updates)
-        _engine().set_fixtures(ctrl.fixtures)
+        _reload_fixtures()
 
     logger.info('Updated fixture %d: %s', fixture_id, list(updates.keys()))
     return jsonify({'ok': True})

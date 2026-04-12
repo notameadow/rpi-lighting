@@ -230,12 +230,36 @@
     }
     #fader-strip::-webkit-scrollbar { display: none; }
 
+    .group-wrap {
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+    .group-label {
+      font-family: var(--mono);
+      font-size: 0.45rem;
+      font-weight: 700;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      text-align: center;
+      padding: 0 2px 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .group-faders {
+      display: flex;
+      gap: 4px;
+      align-items: stretch;
+    }
     .group-sep {
       width: 2px;
       flex-shrink: 0;
       background: var(--border);
       margin: 0 3px;
       border-radius: 1px;
+      align-self: stretch;
     }
 
     .ch-strip {
@@ -1072,10 +1096,18 @@
     <hr class="settings-sep">
     <div class="setting-row" style="flex-direction:column;align-items:stretch;gap:8px">
       <div style="display:flex;justify-content:space-between;align-items:center">
+        <label>Fixture Groups</label>
+        <button class="fx-btn" onclick="addGroup()">+ GROUP</button>
+      </div>
+      <div id="group-list" style="display:flex;flex-direction:column;gap:3px;"></div>
+    </div>
+    <hr class="settings-sep">
+    <div class="setting-row" style="flex-direction:column;align-items:stretch;gap:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
         <label>Fixtures</label>
         <button class="fx-btn" onclick="openFixtureEditor(null)">+ ADD</button>
       </div>
-      <div id="fixture-list" style="max-height:200px;overflow-y:auto"></div>
+      <div id="fixture-list" style="max-height:200px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border) transparent;"></div>
     </div>
     <div id="settings-actions">
       <button class="settings-close" id="settings-close-btn" onclick="settingsClose()">CLOSE</button>
@@ -1119,11 +1151,7 @@
         <div style="flex:1">
           <label style="font-family:var(--mono);font-size:0.55rem;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:0.2rem;">Group</label>
           <select id="fix-group" style="width:100%;padding:0.4rem;background:var(--groove);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:0.7rem;">
-            <option value="slimpar">SlimPar</option>
-            <option value="triangle">Triangle</option>
-            <option value="droid">Droid</option>
-            <option value="haze">Haze</option>
-            <option value="custom">Custom</option>
+            <option value="">Ungrouped</option>
           </select>
         </div>
       </div>
@@ -1328,21 +1356,60 @@ function renderFaders() {
   const strip = document.getElementById('fader-strip');
   strip.innerHTML = '';
 
-  const mainPars = fixtures.filter(f => f.group === 'slimpar' && !f.name.startsWith('Bar'));
-  const triangle = fixtures.filter(f => f.group === 'triangle');
-  const droid    = fixtures.filter(f => f.group === 'droid');
-  const haze     = fixtures.filter(f => f.group === 'haze');
-  const bars     = fixtures.filter(f => f.group === 'slimpar' && f.name.startsWith('Bar'));
+  // Group fixtures by group_id, preserving fixture order from API
+  const groupMap = new Map(); // group_id -> { name, fixtures }
+  const ungrouped = [];
+  fixtures.forEach(f => {
+    if (f.group_id != null) {
+      if (!groupMap.has(f.group_id)) {
+        groupMap.set(f.group_id, { name: f.group_name || '', fixtures: [] });
+      }
+      groupMap.get(f.group_id).fixtures.push(f);
+    } else {
+      ungrouped.push(f);
+    }
+  });
 
-  const groups = [mainPars, triangle, droid, haze, bars];
-  groups.forEach((grp, gi) => {
-    if (gi > 0 && grp.length > 0) {
+  let first = true;
+  groupMap.forEach((grp) => {
+    if (grp.fixtures.length === 0) return;
+    if (!first) {
       const sep = document.createElement('div');
       sep.className = 'group-sep';
       strip.appendChild(sep);
     }
-    grp.forEach(f => strip.appendChild(buildChannel(f)));
+    first = false;
+    const wrap = document.createElement('div');
+    wrap.className = 'group-wrap';
+    const label = document.createElement('div');
+    label.className = 'group-label';
+    label.textContent = grp.name;
+    wrap.appendChild(label);
+    const faders = document.createElement('div');
+    faders.className = 'group-faders';
+    grp.fixtures.forEach(f => faders.appendChild(buildChannel(f)));
+    wrap.appendChild(faders);
+    strip.appendChild(wrap);
   });
+
+  if (ungrouped.length > 0) {
+    if (!first) {
+      const sep = document.createElement('div');
+      sep.className = 'group-sep';
+      strip.appendChild(sep);
+    }
+    const wrap = document.createElement('div');
+    wrap.className = 'group-wrap';
+    const label = document.createElement('div');
+    label.className = 'group-label';
+    label.innerHTML = '&nbsp;';
+    wrap.appendChild(label);
+    const faders = document.createElement('div');
+    faders.className = 'group-faders';
+    ungrouped.forEach(f => faders.appendChild(buildChannel(f)));
+    wrap.appendChild(faders);
+    strip.appendChild(wrap);
+  }
 
   // Dynamic label font size: fit longest name in fader height
   requestAnimationFrame(() => {
@@ -2530,6 +2597,8 @@ async function toggleSettings() {
       }
     }
     loadHistory();
+    await loadGroups();
+    loadGroupList();
     loadFixtureList();
     // Wake lock button
     const wlBtn = document.getElementById('wake-lock-btn');
@@ -2561,18 +2630,99 @@ async function toggleSettings() {
 
 let _editFixId = null;
 let _editFixChannels = [];
+let _fixtureGroups = [];
+
+async function loadGroups() {
+  const resp = await api('/api/groups');
+  if (resp && resp.ok) _fixtureGroups = await resp.json();
+}
+
+function loadGroupList() {
+  const list = document.getElementById('group-list');
+  if (!list) return;
+  list.innerHTML = '';
+  _fixtureGroups.forEach(g => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:0.4rem;padding:0.3rem 0.4rem;border:1px solid var(--border);border-radius:4px;';
+    const nameSpan = document.createElement('span');
+    nameSpan.style.cssText = 'font-family:var(--mono);font-size:0.65rem;color:var(--text);flex:1;cursor:pointer;';
+    nameSpan.textContent = g.name;
+    nameSpan.onclick = () => {
+      const newName = prompt('Rename group:', g.name);
+      if (newName && newName.trim()) {
+        api('/api/group/' + g.id, {
+          method: 'PUT',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ name: newName.trim() })
+        }).then(() => { loadGroups().then(() => { loadGroupList(); loadFixtureList(); }); });
+      }
+    };
+    const count = fixtures.filter(f => f.group_id === g.id).length;
+    const countSpan = document.createElement('span');
+    countSpan.style.cssText = 'font-family:var(--mono);font-size:0.55rem;color:var(--muted);';
+    countSpan.textContent = count + ' fix';
+    const delBtn = document.createElement('button');
+    delBtn.className = 'fx-btn';
+    delBtn.style.cssText = 'font-size:0.8rem;padding:0.2rem 0.4rem;color:var(--danger);line-height:1;';
+    delBtn.textContent = '×';
+    delBtn.onclick = () => {
+      if (!confirm('Delete group "' + g.name + '"? Fixtures will become ungrouped.')) return;
+      api('/api/group/' + g.id, { method: 'DELETE' }).then(() => {
+        loadGroups().then(() => { loadGroupList(); reloadFixtures(); });
+      });
+    };
+    row.appendChild(nameSpan);
+    row.appendChild(countSpan);
+    row.appendChild(delBtn);
+    list.appendChild(row);
+  });
+}
+
+async function addGroup() {
+  const name = prompt('Group name:');
+  if (!name || !name.trim()) return;
+  await api('/api/group', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ name: name.trim() })
+  });
+  await loadGroups();
+  loadGroupList();
+}
+
+function populateGroupDropdown() {
+  const sel = document.getElementById('fix-group');
+  sel.innerHTML = '<option value="">Ungrouped</option>';
+  _fixtureGroups.forEach(g => {
+    const opt = document.createElement('option');
+    opt.value = g.id;
+    opt.textContent = g.name;
+    sel.appendChild(opt);
+  });
+}
+
+async function reloadFixtures() {
+  const fResp = await api('/api/fixtures');
+  if (fResp && fResp.ok) {
+    fixtures = await fResp.json();
+    renderFaders();
+    loadFixtureList();
+  }
+}
 
 function loadFixtureList() {
   const list = document.getElementById('fixture-list');
   if (!list) return;
   list.innerHTML = '';
-  fixtures.forEach(f => {
+  const sorted = [...fixtures].sort((a, b) => a.dmx_address - b.dmx_address);
+  sorted.forEach(f => {
     const row = document.createElement('div');
-    row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;margin-bottom:3px;cursor:pointer;';
+    row.style.cssText = 'display:flex;align-items:center;gap:0.4rem;padding:0.3rem 0.4rem;border:1px solid var(--border);border-radius:4px;margin-bottom:3px;cursor:pointer;';
     row.innerHTML =
-      '<span style="font-family:var(--mono);font-size:0.65rem;color:var(--accent);min-width:2rem">' + f.dmx_address + '</span>' +
-      '<span style="font-family:var(--mono);font-size:0.65rem;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + f.name + '</span>' +
-      '<span style="font-family:var(--mono);font-size:0.55rem;color:var(--muted)">' + f.channels.length + 'ch</span>';
+      '<span style="font-family:var(--mono);font-size:0.6rem;color:var(--accent);min-width:2rem;text-align:right">' + f.dmx_address + '</span>' +
+      '<span style="font-family:var(--mono);font-size:0.6rem;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + f.name + '</span>' +
+      '<span style="font-family:var(--mono);font-size:0.5rem;color:var(--muted)">' + f.channels.length + 'ch</span>' +
+      (f.group_name ? '<span style="font-family:var(--mono);font-size:0.45rem;color:var(--muted);white-space:nowrap">(' + f.group_name + ')</span>' : '');
     row.onclick = () => openFixtureEditor(f.id);
     list.appendChild(row);
   });
@@ -2583,6 +2733,7 @@ function openFixtureEditor(fixtureId) {
   const panel = document.getElementById('fixture-editor');
   const title = document.getElementById('fix-editor-title');
   const delBtn = document.getElementById('fix-delete-btn');
+  populateGroupDropdown();
 
   if (fixtureId != null) {
     const f = fixtures.find(x => x.id === fixtureId);
@@ -2592,7 +2743,7 @@ function openFixtureEditor(fixtureId) {
     document.getElementById('fix-model').value = f.model || '';
     document.getElementById('fix-manufacturer').value = f.manufacturer || '';
     document.getElementById('fix-address').value = f.dmx_address;
-    document.getElementById('fix-group').value = f.group;
+    document.getElementById('fix-group').value = f.group_id || '';
     _editFixChannels = [...f.channels];
     delBtn.style.display = '';
   } else {
@@ -2601,7 +2752,7 @@ function openFixtureEditor(fixtureId) {
     document.getElementById('fix-model').value = '';
     document.getElementById('fix-manufacturer').value = '';
     document.getElementById('fix-address').value = '1';
-    document.getElementById('fix-group').value = 'custom';
+    document.getElementById('fix-group').value = '';
     _editFixChannels = ['Intensity'];
     delBtn.style.display = 'none';
   }
@@ -2649,11 +2800,11 @@ async function saveFixture() {
     manufacturer: document.getElementById('fix-manufacturer').value.trim(),
     dmx_address: parseInt(document.getElementById('fix-address').value) || 1,
     channels: _editFixChannels,
-    group: document.getElementById('fix-group').value,
+    group_id: document.getElementById('fix-group').value || null,
   };
 
   let resp;
-  if (_editFixId) {
+  if (_editFixId != null) {
     resp = await api('/api/fixture/' + _editFixId, {
       method: 'PUT',
       headers: {'Content-Type': 'application/json'},

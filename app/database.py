@@ -91,6 +91,44 @@ def init_db():
         for i, row in enumerate(rows):
             conn.execute('UPDATE scenes SET position=? WHERE id=?', (i, row['id']))
         conn.commit()
+
+    # Fixture groups table
+    conn.execute('''CREATE TABLE IF NOT EXISTS fixture_groups (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT,
+        position INTEGER DEFAULT 0
+    )''')
+    # Add group_id and position to fixtures
+    try:
+        conn.execute('ALTER TABLE fixtures ADD COLUMN group_id INTEGER')
+    except Exception:
+        pass
+    try:
+        conn.execute('ALTER TABLE fixtures ADD COLUMN position INTEGER DEFAULT 0')
+    except Exception:
+        pass
+
+    # Migrate: create groups from existing grp strings, assign group_id
+    existing_groups = conn.execute('SELECT COUNT(*) as c FROM fixture_groups').fetchone()['c']
+    if existing_groups == 0:
+        grp_rows = conn.execute('SELECT DISTINCT grp FROM fixtures WHERE grp IS NOT NULL AND grp != ""').fetchall()
+        grp_map = {}
+        for i, row in enumerate(grp_rows):
+            grp_name = row['grp']
+            # Capitalise for display
+            display = grp_name.replace('slimpar', 'SlimPar').replace('triangle', 'Triangle') \
+                .replace('droid', 'Droid').replace('haze', 'Haze').replace('custom', 'Custom')
+            conn.execute('INSERT INTO fixture_groups (name, position) VALUES (?, ?)', (display, i))
+            gid = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
+            grp_map[grp_name] = gid
+        # Assign group_id and position within group
+        for grp_name, gid in grp_map.items():
+            fixes = conn.execute('SELECT id FROM fixtures WHERE grp=? ORDER BY id', (grp_name,)).fetchall()
+            for pos, fix in enumerate(fixes):
+                conn.execute('UPDATE fixtures SET group_id=?, position=? WHERE id=?', (gid, pos, fix['id']))
+        conn.commit()
+        logger.info('Migrated %d fixture groups from grp column', len(grp_map))
+
     conn.close()
     logger.info('Database initialized')
 
@@ -300,11 +338,79 @@ def store_scenes(scenes):
 
 
 def load_fixtures():
-    """Load fixtures from DB. Returns list of dicts or empty list."""
+    """Load fixtures from DB, ordered by group position then fixture position."""
     conn = _connect()
-    rows = conn.execute('SELECT * FROM fixtures ORDER BY id').fetchall()
+    rows = conn.execute('''SELECT f.*, fg.name as group_name, fg.position as group_position
+        FROM fixtures f
+        LEFT JOIN fixture_groups fg ON f.group_id = fg.id
+        ORDER BY COALESCE(fg.position, 999), f.position, f.id''').fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+# ------------------------------------------------------------------
+# Fixture groups
+# ------------------------------------------------------------------
+
+def get_fixture_groups():
+    conn = _connect()
+    rows = conn.execute('SELECT * FROM fixture_groups ORDER BY position, id').fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def add_fixture_group(name):
+    conn = _connect()
+    pos = conn.execute('SELECT COALESCE(MAX(position),0)+1 as p FROM fixture_groups').fetchone()['p']
+    conn.execute('INSERT INTO fixture_groups (name, position) VALUES (?, ?)', (name, pos))
+    gid = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
+    conn.commit()
+    conn.close()
+    return gid
+
+
+def update_fixture_group(group_id, **kwargs):
+    conn = _connect()
+    for key, value in kwargs.items():
+        conn.execute(f'UPDATE fixture_groups SET {key}=? WHERE id=?', (value, group_id))
+    conn.commit()
+    conn.close()
+
+
+def delete_fixture_group(group_id):
+    conn = _connect()
+    # Unassign fixtures in this group
+    conn.execute('UPDATE fixtures SET group_id=NULL WHERE group_id=?', (group_id,))
+    conn.execute('DELETE FROM fixture_groups WHERE id=?', (group_id,))
+    conn.commit()
+    conn.close()
+
+
+def reorder_fixture_groups(group_ids):
+    conn = _connect()
+    for i, gid in enumerate(group_ids):
+        conn.execute('UPDATE fixture_groups SET position=? WHERE id=?', (i, gid))
+    conn.commit()
+    conn.close()
+
+
+def reorder_fixtures_in_group(fixture_ids):
+    """Set fixture positions from an ordered list of IDs."""
+    conn = _connect()
+    for i, fid in enumerate(fixture_ids):
+        conn.execute('UPDATE fixtures SET position=? WHERE id=?', (i, fid))
+    conn.commit()
+    conn.close()
+
+
+def move_fixture_to_group(fixture_id, group_id):
+    """Move a fixture to a different group, placing it at the end."""
+    conn = _connect()
+    pos = conn.execute('SELECT COALESCE(MAX(position),0)+1 as p FROM fixtures WHERE group_id=?',
+                       (group_id,)).fetchone()['p']
+    conn.execute('UPDATE fixtures SET group_id=?, position=? WHERE id=?', (group_id, pos, fixture_id))
+    conn.commit()
+    conn.close()
 
 
 def load_scenes():
@@ -364,16 +470,18 @@ def reorder_scenes(scene_ids):
     conn.close()
 
 
-def add_fixture(name, model, manufacturer, dmx_address, channels, group):
+def add_fixture(name, model, manufacturer, dmx_address, channels, group='', group_id=None):
     """Add a new fixture to DB. Returns the assigned ID."""
     conn = _connect()
     row = conn.execute('SELECT MAX(id) as m FROM fixtures').fetchone()
     new_id = max(100, (row['m'] or 0) + 1)
+    pos = conn.execute('SELECT COALESCE(MAX(position),0)+1 as p FROM fixtures WHERE group_id=?',
+                       (group_id,)).fetchone()['p']
     conn.execute('''INSERT INTO fixtures (id, name, model, manufacturer,
-        dmx_address, channel_count, profile_channels, grp)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+        dmx_address, channel_count, profile_channels, grp, group_id, position)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
         (new_id, name, model, manufacturer, dmx_address,
-         len(channels), json.dumps(channels), group))
+         len(channels), json.dumps(channels), group, group_id, pos))
     conn.commit()
     conn.close()
     logger.info('Added fixture %d "%s" at address %d', new_id, name, dmx_address)
