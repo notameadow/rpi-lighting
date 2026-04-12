@@ -206,6 +206,24 @@ def set_scene_fade(scene_id):
     return jsonify({'ok': False, 'error': 'scene not found'}), 404
 
 
+@api_bp.route('/api/scene/<int:scene_id>/name', methods=['POST'])
+@require_auth
+def rename_scene(scene_id):
+    """Rename a scene."""
+    data = request.get_json(silent=True) or {}
+    name = data.get('name', '').strip()
+    if not name:
+        return jsonify({'ok': False, 'error': 'name required'}), 400
+    ctrl = _controller()
+    for s in ctrl.scenes:
+        if s.id == scene_id:
+            s.name = name
+            update_scene(scene_id, name=name)
+            logger.info('Renamed scene %d to "%s"', scene_id, name)
+            return jsonify({'ok': True, 'name': name})
+    return jsonify({'ok': False, 'error': 'scene not found'}), 404
+
+
 # ------------------------------------------------------------------
 # Fixtures
 # ------------------------------------------------------------------

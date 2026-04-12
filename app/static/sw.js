@@ -1,4 +1,4 @@
-// v2 — force update
+// v3 — network-first, never serve stale
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (event) => {
   event.waitUntil(
@@ -6,5 +6,7 @@ self.addEventListener('activate', (event) => {
       .then(() => self.clients.claim())
   );
 });
-// Pass through everything — no caching
-self.addEventListener('fetch', () => {});
+// Always go to network — never serve from cache
+self.addEventListener('fetch', (event) => {
+  event.respondWith(fetch(event.request));
+});

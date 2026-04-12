@@ -343,11 +343,13 @@ def add_scene(scene):
     conn = _connect()
     row = conn.execute('SELECT MAX(id) as m FROM scenes').fetchone()
     new_id = max(1000, (row['m'] or 0) + 1)
+    pos_row = conn.execute('SELECT MAX(position) as p FROM scenes').fetchone()
+    new_pos = (pos_row['p'] or 0) + 1
     conn.execute('''INSERT INTO scenes (id, name, dmx_values, channel_mask,
-        fade_in, fade_out, button_color, locked, master_level)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+        fade_in, fade_out, button_color, locked, master_level, position)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
         (new_id, scene.name, bytes(scene.dmx_values), json.dumps(sorted(scene.channel_mask)),
-         scene.fade_in, scene.fade_out, scene.button_color, int(scene.locked), scene.master_level))
+         scene.fade_in, scene.fade_out, scene.button_color, int(scene.locked), scene.master_level, new_pos))
     conn.commit()
     conn.close()
     return new_id

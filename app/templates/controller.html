@@ -62,6 +62,7 @@
       position: relative;
       z-index: 10;
       padding: 6px 12px;
+      overflow: hidden;
     }
     .hdr-row1 {
       display: flex;
@@ -86,7 +87,7 @@
       gap: 8px;
     }
     .hdr-control {
-      flex: 1;
+      flex: 1 1 0;
       display: flex;
       align-items: center;
       gap: 6px;
@@ -309,7 +310,7 @@
       background: var(--fader-color, var(--accent));
     }
     .ch-strip.active-scene .ch-label {
-      color: var(--accent);
+      /* colour set dynamically in syncFaders() */
     }
     .ch-strip.inactive {
       opacity: 0.55;
@@ -333,15 +334,14 @@
     /* Channel label — vertical, inside fader track */
     .ch-label {
       position: absolute;
-      left: 0;
-      right: 0;
+      left: 50%;
       bottom: 4px;
+      transform: translateX(-50%) rotate(180deg);
       font-family: var(--mono);
-      font-size: 0.65rem;
+      font-size: var(--label-size, 0.65rem);
       font-weight: 600;
       color: var(--muted);
       writing-mode: vertical-rl;
-      transform: rotate(180deg);
       text-align: left;
       max-height: calc(var(--fader-h) - 16px);
       overflow: hidden;
@@ -349,14 +349,13 @@
       white-space: nowrap;
       cursor: pointer;
       padding: 2px 0;
-      pointer-events: auto;
+      pointer-events: none;
       user-select: none;
       -webkit-user-select: none;
+      -webkit-touch-callout: none;
       opacity: 0.6;
       z-index: 1;
-    }
-    .ch-label:active {
-      opacity: 1;
+      transition: color 0.5s linear;
     }
 
     /* ── Color picker popover ──────────────────────────────────── */
@@ -541,15 +540,20 @@
       touch-action: manipulation;
       overflow: hidden;
     }
-    .scene-btn.dragging {
-      opacity: 0.4;
-    }
-    .scene-btn.drag-over {
-      border-color: var(--accent);
-      box-shadow: 0 0 8px rgba(232,160,32,0.4);
-    }
     .edit-mode .scene-btn {
       cursor: grab;
+    }
+    .sortable-ghost {
+      opacity: 0.3;
+    }
+    .sortable-chosen {
+      border: 2px solid var(--accent) !important;
+      box-shadow: 0 0 12px rgba(232,160,32,0.5);
+    }
+    .sortable-drag {
+      opacity: 0.9;
+      transform: scale(1.05);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
     }
     .edit-mode .scene-btn::after {
       content: '⋮';
@@ -911,6 +915,19 @@
       #scene-grid { grid-template-columns: repeat(auto-fill, minmax(68px, 1fr)); }
       .scene-btn { height: 38px; font-size: 0.55rem; }
     }
+    @media (max-width: 500px) {
+      .hdr-row2 {
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .hdr-row2 .hdr-control:first-child {
+        flex: 1 1 100%;
+      }
+      .hdr-row2 .hdr-control:nth-child(2),
+      .hdr-row2 .hdr-control:nth-child(3) {
+        flex: 1 1 45%;
+      }
+    }
   </style>
 </head>
 <body>
@@ -1086,6 +1103,7 @@
   </div>
 </div>
 
+<script src="/static/sortable.min.js"></script>
 <script>
 'use strict';
 
@@ -1100,6 +1118,8 @@ let popFixture = null;   // fixture currently open in popover
 let lastThrottle = {};   // per-endpoint throttle timestamps
 let faderTouching = {};  // track active touches on faders
 let faderCooldown = {};  // timestamp when touch ended — ignore poll updates briefly
+let sceneRecallTime = 0;
+let sceneRecallId = null;
 
 const PRESETS = [
   // Row 1: primaries and secondaries
@@ -1157,6 +1177,12 @@ async function poll() {
   const resp = await api('/api/state');
   if (!resp || !resp.ok) { setLed(false); return; }
   state = await resp.json();
+  // Preserve optimistic scene ID during recall cooldown
+  if (sceneRecallId !== null && Date.now() - sceneRecallTime < 1500) {
+    state.active_scene_id = sceneRecallId;
+  } else {
+    sceneRecallId = null;
+  }
   setLed(true);
   updateUI();
 }
@@ -1187,6 +1213,21 @@ function renderFaders() {
       strip.appendChild(sep);
     }
     grp.forEach(f => strip.appendChild(buildChannel(f)));
+  });
+
+  // Dynamic label font size: fit longest name in fader height
+  requestAnimationFrame(() => {
+    const faderEl = strip.querySelector('.vfader-wrap');
+    if (!faderEl) return;
+    const faderH = faderEl.getBoundingClientRect().height;
+    const availH = faderH - 16;
+    const allNames = fixtures.map(f => {
+      let n = f.name.replace(/^N?\s*\d+\s*N?\s*/, '').replace(/^N\s+/, '').trim();
+      return n || f.name;
+    });
+    const maxLen = Math.max(...allNames.map(n => n.length), 1);
+    const sz = Math.max(6, Math.min(16, Math.floor(availH / maxLen * 1.4)));
+    document.documentElement.style.setProperty('--label-size', sz + 'px');
   });
 }
 
@@ -1243,6 +1284,20 @@ function buildChannel(f) {
   intWrap.classList.add('int');
   pair.appendChild(intWrap);
 
+  // White fader for fixtures with White channel
+  if (hasW) {
+    const wWrap = makeFader(f.id, 'w', (val) => {
+      throttledPost('w-' + f.id, '/api/fixture/' + f.id + '/color', { white: val });
+    });
+    wWrap.classList.add('rgb');
+    pair.appendChild(wWrap);
+    // Add white value display
+    const wVal = document.createElement('span');
+    wVal.id = 'fv-w-' + f.id;
+    wVal.textContent = '0';
+    vals.appendChild(wVal);
+  }
+
   // Label — inside fader track, vertical
   let label = f.name
     .replace(/^N?\s*\d+\s*N?\s*/, '')
@@ -1254,11 +1309,6 @@ function buildChannel(f) {
   labelEl.className = 'ch-label';
   labelEl.textContent = label;
   labelEl.title = f.name + ' (' + f.model + ')';
-
-  // Tap label to open colour popover for RGB/W fixtures
-  if (hasRGB || hasW) {
-    labelEl.onclick = (e) => openPopover(f, e);
-  }
 
   // Place label inside the intensity fader wrap
   intWrap.appendChild(labelEl);
@@ -1406,6 +1456,18 @@ function _syncFadersInner() {
       setFaderVisual(f.id, 'int', intVal);
     }
 
+    // Sync white fader
+    if (hasW && !isFaderLocked('w-' + f.id)) {
+      const wWrap = document.getElementById('fw-w-' + f.id);
+      if (wWrap) {
+        wWrap.classList.add('smooth');
+        const wVal = levels.White || 0;
+        const wFill = document.getElementById('ff-w-' + f.id);
+        if (wFill) wFill.style.background = wVal > 0 ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.2)';
+        setFaderVisual(f.id, 'w', wVal);
+      }
+    }
+
     // Update colour dot
     const dot = document.getElementById('cdot-' + f.id);
     if (dot) {
@@ -1414,6 +1476,20 @@ function _syncFadersInner() {
         dot.style.background = mx > 0 ? 'rgb(' + r + ',' + g + ',' + b + ')' : 'var(--muted)';
       } else if (hasW) {
         dot.style.background = w > 0 ? 'rgb(' + w + ',' + w + ',' + w + ')' : 'var(--muted)';
+      }
+    }
+
+    // Update label contrast — white on active fixtures, muted on inactive
+    const intWrapForLabel = document.getElementById('fw-int-' + f.id);
+    const label = intWrapForLabel && intWrapForLabel.querySelector('.ch-label');
+    if (label) {
+      const active = hasRGB ? Math.max(r, g, b) > 0 : (hasW ? w > 0 : (levels[intName] || 0) > 0);
+      if (active) {
+        label.style.color = 'rgba(255,255,255,0.9)';
+        label.style.textShadow = '0 0 4px rgba(0,0,0,0.8)';
+      } else {
+        label.style.color = '';
+        label.style.textShadow = '';
       }
     }
 
@@ -1656,8 +1732,14 @@ function renderScenes() {
   grid.innerHTML = '';
   const filtered = scenes.filter(s => !isSceneHidden(s.name));
 
-  // Use API order (scenes arrive pre-sorted by position from DB)
-  sceneOrder = filtered.map(s => s.id);
+  // Use current sceneOrder if valid, otherwise reset from API order
+  const filteredIds = new Set(filtered.map(s => s.id));
+  const orderValid = sceneOrder.length > 0 &&
+    sceneOrder.length === filteredIds.size &&
+    sceneOrder.every(id => filteredIds.has(id));
+  if (!orderValid) {
+    sceneOrder = filtered.map(s => s.id);
+  }
 
   const sceneMap = {};
   filtered.forEach(s => { sceneMap[s.id] = s; });
@@ -1672,54 +1754,54 @@ function renderScenes() {
     btn.style.background = s.button_color;
     btn.style.color = isLight(s.button_color) ? '#0a0a0a' : 'rgba(255,255,255,0.9)';
     btn.textContent = s.name;
-    btn.draggable = true;
 
-    btn.onclick = (e) => {
-      if (btn._longPressed) { btn._longPressed = false; return; }
-      if (editMode) {
-        openSceneCtx(s.id, e.clientX, e.clientY);
-      } else {
-        recallScene(s.id);
-      }
-    };
+    // Click handling (SortableJS handles drag)
+    setupSceneInteraction(btn, s);
 
-    // Drag and drop for reorder (edit mode only)
-    btn.addEventListener('dragstart', (e) => {
-      if (!editMode) { e.preventDefault(); return; }
-      btn.classList.add('dragging');
-      e.dataTransfer.setData('text/plain', s.id);
-    });
-    btn.addEventListener('dragend', () => { btn.classList.remove('dragging'); });
-    btn.addEventListener('dragover', (e) => {
-      if (!editMode) return;
-      e.preventDefault();
-      btn.classList.add('drag-over');
-    });
-    btn.addEventListener('dragleave', () => { btn.classList.remove('drag-over'); });
-    btn.addEventListener('drop', (e) => {
-      e.preventDefault();
-      btn.classList.remove('drag-over');
-      if (!editMode) return;
-      const draggedId = parseInt(e.dataTransfer.getData('text/plain'));
-      const targetId = s.id;
-      if (draggedId === targetId) return;
-      // Reorder
-      const fromIdx = sceneOrder.indexOf(draggedId);
-      const toIdx = sceneOrder.indexOf(targetId);
-      sceneOrder.splice(fromIdx, 1);
-      sceneOrder.splice(toIdx, 0, draggedId);
-      api('/api/scenes/reorder', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ order: sceneOrder })
-      });
-      renderScenes();
-    });
-
-    // Context menu (long-press on touch, right-click on desktop) — always available
+    // Context menu (long-press on touch, right-click on desktop)
     attachSceneContextEvents(btn, s.id);
 
     grid.appendChild(btn);
+  });
+  initSortable();
+}
+
+let sceneSortable = null;
+
+function initSortable() {
+  const grid = document.getElementById('scene-grid');
+  if (sceneSortable) sceneSortable.destroy();
+  sceneSortable = new Sortable(grid, {
+    animation: 150,
+    ghostClass: 'sortable-ghost',
+    chosenClass: 'sortable-chosen',
+    dragClass: 'sortable-drag',
+    disabled: !editMode,
+    delay: 150,
+    delayOnTouchOnly: true,
+    onEnd: () => {
+      const newOrder = Array.from(grid.querySelectorAll('.scene-btn'))
+        .map(b => parseInt(b.dataset.id));
+      if (JSON.stringify(newOrder) !== JSON.stringify(sceneOrder)) {
+        sceneOrder = newOrder;
+        api('/api/scenes/reorder', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ order: sceneOrder })
+        });
+      }
+    }
+  });
+}
+
+function setupSceneInteraction(btn, scene) {
+  btn.addEventListener('click', (e) => {
+    if (btn._longPressed) { btn._longPressed = false; return; }
+    if (editMode) {
+      openSceneCtx(scene.id, e.clientX, e.clientY);
+    } else {
+      recallScene(scene.id);
+    }
   });
 }
 
@@ -1730,6 +1812,8 @@ function isLight(rgba) {
 }
 
 async function recallScene(id) {
+  sceneRecallTime = Date.now();
+  sceneRecallId = id;
   state.active_scene_id = id;
   state.fading = true;
   const s = scenes.find(x => x.id === id);
@@ -1753,6 +1837,7 @@ function toggleEditMode() {
   editMode = !editMode;
   document.getElementById('edit-mode-btn').classList.toggle('active', editMode);
   document.getElementById('scene-bank').classList.toggle('edit-mode', editMode);
+  if (sceneSortable) sceneSortable.option('disabled', !editMode);
 }
 
 function updateSceneButtons() {
@@ -1781,6 +1866,7 @@ function attachSceneContextEvents(btn, sceneId) {
   // Long-press (touch) — 500ms hold
   btn.addEventListener('pointerdown', (e) => {
     if (e.pointerType === 'mouse') return; // mouse uses contextmenu
+    if (editMode) return; // edit mode uses drag
     longPressTimer = setTimeout(() => {
       longPressTimer = null;
       openSceneCtx(sceneId, e.clientX, e.clientY);
@@ -1808,7 +1894,36 @@ function openSceneCtx(sceneId, x, y) {
   const scene = scenes.find(s => s.id === sceneId);
   if (!scene) return;
 
-  document.getElementById('ctx-scene-name').textContent = scene.name;
+  const nameEl = document.getElementById('ctx-scene-name');
+  nameEl.textContent = scene.name;
+  nameEl.style.cursor = 'pointer';
+  nameEl.onclick = () => {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = scene.name;
+    input.style.cssText = 'width:100%;font-family:var(--mono);font-size:inherit;font-weight:inherit;color:var(--accent);background:var(--groove);border:1px solid var(--accent);border-radius:3px;padding:4px 6px;outline:none;';
+    nameEl.replaceWith(input);
+    input.focus();
+    input.select();
+    const save = () => {
+      const newName = input.value.trim();
+      if (newName && newName !== scene.name) {
+        scene.name = newName;
+        api('/api/scene/' + sceneId + '/name', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ name: newName })
+        });
+        renderScenes();
+      }
+      const h3 = document.createElement('h3');
+      h3.id = 'ctx-scene-name';
+      h3.textContent = scene.name;
+      input.replaceWith(h3);
+    };
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') save(); });
+    input.addEventListener('blur', save);
+  };
   const fadeInput = document.getElementById('ctx-fade');
   fadeInput.value = scene.fade_in;
   const disp = document.getElementById('ctx-fade-display');
@@ -2000,6 +2115,7 @@ function toggleHaze() {
 }
 
 function hazeSliderChanged(val) {
+  hazeTouchTime = Date.now();
   const v = parseInt(val);
   state.haze_level = v;
   state.haze = v > 0;
@@ -2018,7 +2134,11 @@ function toggleStrobe() {
   });
 }
 
+let strobeTouchTime = 0;
+let hazeTouchTime = 0;
+
 function strobeSpeedChanged(val) {
+  strobeTouchTime = Date.now();
   const speed = parseInt(val);
   state.strobe_speed = speed;
   // Update button animation speed immediately
@@ -2031,7 +2151,7 @@ function updateFxButtons() {
   document.getElementById('haze-btn').classList.toggle('active', !!state.haze);
   const hazeSlider = document.getElementById('haze-slider');
   hazeSlider.classList.toggle('active-haze', !!state.haze);
-  if (state.haze_level != null && document.activeElement !== hazeSlider) {
+  if (state.haze_level != null && Date.now() - hazeTouchTime > 2000) {
     hazeSlider.value = state.haze_level;
   }
   const strobeOn = !!state.strobe;
@@ -2044,7 +2164,7 @@ function updateFxButtons() {
   }
   const strobeSlider = document.getElementById('strobe-slider');
   strobeSlider.classList.toggle('strobe-active', strobeOn);
-  if (state.strobe_speed != null && document.activeElement !== strobeSlider) {
+  if (state.strobe_speed != null && Date.now() - strobeTouchTime > 2000) {
     strobeSlider.value = state.strobe_speed;
   }
 }
