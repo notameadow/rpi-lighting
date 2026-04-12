@@ -508,11 +508,6 @@
       background: var(--border);
       border-radius: 2px;
     }
-    #scene-toolbar {
-      display: flex;
-      justify-content: flex-end;
-      padding: 8px 0 0;
-    }
     #scene-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
@@ -542,6 +537,11 @@
     }
     .edit-mode .scene-btn {
       cursor: grab;
+      animation: edit-pulse 2.5s ease-in-out infinite;
+    }
+    @keyframes edit-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.65; }
     }
     .sortable-ghost {
       opacity: 0.3;
@@ -940,6 +940,7 @@
       <img id="header-logo" src="/logo" alt="">
       <div id="active-scene-indicator"></div>
       <div class="hdr-row1-right">
+        <button class="fx-btn" id="edit-mode-btn" onclick="toggleEditMode()">EDIT</button>
         <button class="fx-btn icon-btn" id="settings-btn" onclick="toggleSettings()" title="Settings">&#9881;</button>
         <button class="fx-btn icon-btn status-reload" id="reload-btn" onclick="hardReload()" title="Reload">&#8635;</button>
       </div>
@@ -970,9 +971,6 @@
   <!-- ═══ SCENE BANK ═══ -->
   <div id="scene-bank">
     <div id="scene-grid"></div>
-    <div id="scene-toolbar">
-      <button class="fx-btn" id="edit-mode-btn" onclick="toggleEditMode()">EDIT</button>
-    </div>
   </div>
 
 </div>
@@ -1842,7 +1840,9 @@ let editMode = false;
 
 function toggleEditMode() {
   editMode = !editMode;
-  document.getElementById('edit-mode-btn').classList.toggle('active', editMode);
+  const btn = document.getElementById('edit-mode-btn');
+  btn.classList.toggle('active', editMode);
+  btn.textContent = editMode ? 'DONE' : 'EDIT';
   document.getElementById('scene-bank').classList.toggle('edit-mode', editMode);
   if (sceneSortable) sceneSortable.option('disabled', !editMode);
 }
