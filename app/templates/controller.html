@@ -1726,18 +1726,17 @@ function isSceneHidden(name) {
 }
 
 let sceneOrder = []; // filtered scene IDs in display order
+let _keepLocalOrder = false;
 
 function renderScenes() {
   const grid = document.getElementById('scene-grid');
   grid.innerHTML = '';
   const filtered = scenes.filter(s => !isSceneHidden(s.name));
 
-  // Use current sceneOrder if valid, otherwise reset from API order
-  const filteredIds = new Set(filtered.map(s => s.id));
-  const orderValid = sceneOrder.length > 0 &&
-    sceneOrder.length === filteredIds.size &&
-    sceneOrder.every(id => filteredIds.has(id));
-  if (!orderValid) {
+  // Always use server order unless we just did a local reorder
+  if (_keepLocalOrder) {
+    _keepLocalOrder = false;
+  } else {
     sceneOrder = filtered.map(s => s.id);
   }
 
@@ -1779,7 +1778,14 @@ function initSortable() {
     disabled: !editMode,
     delay: 150,
     delayOnTouchOnly: true,
+    onStart: () => {
+      // Suppress clicks on all scene buttons during/after drag
+      document.querySelectorAll('.scene-btn').forEach(b => { b._sortDragging = true; });
+    },
     onEnd: () => {
+      setTimeout(() => {
+        document.querySelectorAll('.scene-btn').forEach(b => { b._sortDragging = false; });
+      }, 200);
       const newOrder = Array.from(grid.querySelectorAll('.scene-btn'))
         .map(b => parseInt(b.dataset.id));
       if (JSON.stringify(newOrder) !== JSON.stringify(sceneOrder)) {
@@ -1797,6 +1803,7 @@ function initSortable() {
 function setupSceneInteraction(btn, scene) {
   btn.addEventListener('click', (e) => {
     if (btn._longPressed) { btn._longPressed = false; return; }
+    if (btn._sortDragging) return;
     if (editMode) {
       openSceneCtx(scene.id, e.clientX, e.clientY);
     } else {

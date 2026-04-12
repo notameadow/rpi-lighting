@@ -184,6 +184,15 @@ def reorder_scenes_api():
     if not order or not isinstance(order, list):
         return jsonify({'ok': False, 'error': 'order required'}), 400
     reorder_scenes(order)
+    # Also reorder in-memory scene list
+    ctrl = _controller()
+    id_to_scene = {s.id: s for s in ctrl.scenes}
+    ctrl.scenes = [id_to_scene[sid] for sid in order if sid in id_to_scene]
+    # Append any scenes not in the order list (shouldn't happen, but safe)
+    for s in id_to_scene.values():
+        if s not in ctrl.scenes:
+            ctrl.scenes.append(s)
+    _engine().set_scenes(ctrl.scenes)
     logger.info('Scene order updated: %s', order)
     return jsonify({'ok': True})
 
