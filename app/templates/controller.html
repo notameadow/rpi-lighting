@@ -179,6 +179,11 @@
       50% { opacity: 0.3; }
     }
     #active-scene-indicator {
+      position: absolute;
+      left: 0;
+      right: 0;
+      margin: 0 auto;
+      width: fit-content;
       padding: 6px 20px;
       border-radius: 4px;
       font-family: var(--mono);
@@ -188,18 +193,17 @@
       white-space: nowrap;
       text-align: center;
       display: none;
-      min-width: 100px;
       max-width: 200px;
       overflow: hidden;
       text-overflow: ellipsis;
-      animation: scene-pulse 3s ease-in-out infinite;
+      animation: scene-pulse 2s ease-in-out infinite;
     }
     #active-scene-indicator.visible {
       display: block;
     }
     @keyframes scene-pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.7; }
+      0%, 100% { opacity: 1; box-shadow: 0 0 8px rgba(232,160,32,0.3); }
+      50% { opacity: 0.6; box-shadow: 0 0 16px rgba(232,160,32,0.6); }
     }
     .status-reload {
       color: rgba(39,174,96,0.6);
@@ -273,6 +277,9 @@
       overflow: hidden;
       cursor: pointer;
       touch-action: pan-x pan-y;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
     }
     .vfader-fill {
       position: absolute;
@@ -916,9 +923,16 @@
       .scene-btn { height: 38px; font-size: 0.55rem; }
     }
     @media (max-width: 500px) {
+      #active-scene-indicator { display: none; }
+      #header { padding: 4px 8px; }
+      .hdr-row1 { margin-bottom: 4px; }
+      .hdr-row1-right { gap: 4px; }
+      .hdr-row1-right .fx-btn { padding: 6px 10px; min-height: 32px; }
+      .hdr-row1-right .fx-btn.icon-btn { padding: 4px 8px; }
+      #header-logo { height: 24px; width: 24px; }
       .hdr-row2 {
         flex-wrap: wrap;
-        gap: 6px;
+        gap: 4px;
       }
       .hdr-row2 .hdr-control:first-child {
         flex: 1 1 100%;
@@ -1285,7 +1299,7 @@ function buildChannel(f) {
   // White fader for fixtures with White channel
   if (hasW) {
     const wWrap = makeFader(f.id, 'w', (val) => {
-      throttledPost('w-' + f.id, '/api/fixture/' + f.id + '/color', { white: val });
+      throttledPost('w-' + f.id, '/api/fixture/' + f.id + '/color', { w: val });
     });
     wWrap.classList.add('rgb');
     pair.appendChild(wWrap);
