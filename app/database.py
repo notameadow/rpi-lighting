@@ -364,6 +364,48 @@ def reorder_scenes(scene_ids):
     conn.close()
 
 
+def add_fixture(name, model, manufacturer, dmx_address, channels, group):
+    """Add a new fixture to DB. Returns the assigned ID."""
+    conn = _connect()
+    row = conn.execute('SELECT MAX(id) as m FROM fixtures').fetchone()
+    new_id = max(100, (row['m'] or 0) + 1)
+    conn.execute('''INSERT INTO fixtures (id, name, model, manufacturer,
+        dmx_address, channel_count, profile_channels, grp)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+        (new_id, name, model, manufacturer, dmx_address,
+         len(channels), json.dumps(channels), group))
+    conn.commit()
+    conn.close()
+    logger.info('Added fixture %d "%s" at address %d', new_id, name, dmx_address)
+    return new_id
+
+
+def update_fixture(fixture_id, **kwargs):
+    """Update specific fields of a fixture in DB."""
+    conn = _connect()
+    for key, value in kwargs.items():
+        col = key
+        if key == 'channels':
+            col = 'profile_channels'
+            value = json.dumps(value)
+        elif key == 'group':
+            col = 'grp'
+        elif key == 'channel_count':
+            value = int(value)
+        conn.execute(f'UPDATE fixtures SET {col}=? WHERE id=?', (value, fixture_id))
+    conn.commit()
+    conn.close()
+
+
+def delete_fixture(fixture_id):
+    """Delete a fixture from DB."""
+    conn = _connect()
+    conn.execute('DELETE FROM fixtures WHERE id=?', (fixture_id,))
+    conn.commit()
+    conn.close()
+    logger.info('Deleted fixture %d', fixture_id)
+
+
 def save_scene_fixtures(scene_id, fixture_ids):
     conn = _connect()
     existing = conn.execute('SELECT fade_in FROM scene_overrides WHERE scene_id=?',

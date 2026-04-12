@@ -6,7 +6,9 @@ from app.config import LUMINAIR_DIR
 from app.database import (get_setting, set_setting, update_scene,
                           delete_scene as db_del_scene, add_scene as db_add_scene,
                           store_scenes, reorder_scenes,
-                          add_upload, get_uploads, set_active_upload, delete_upload as db_delete_upload)
+                          add_upload, get_uploads, set_active_upload, delete_upload as db_delete_upload,
+                          add_fixture as db_add_fixture, update_fixture as db_update_fixture,
+                          delete_fixture as db_delete_fixture)
 
 logger = logging.getLogger('lighting.api')
 
@@ -301,6 +303,101 @@ def fixtures():
             'group': f.group,
         })
     return jsonify(result)
+
+
+@api_bp.route('/api/fixture', methods=['POST'])
+@require_auth
+def create_fixture():
+    """Create a new fixture."""
+    data = request.get_json(silent=True) or {}
+    name = data.get('name', '').strip()
+    if not name:
+        return jsonify({'ok': False, 'error': 'name required'}), 400
+    model = data.get('model', '').strip()
+    manufacturer = data.get('manufacturer', '').strip()
+    dmx_address = int(data.get('dmx_address', 1))
+    channels = data.get('channels', ['Intensity'])
+    group = data.get('group', 'custom')
+
+    new_id = db_add_fixture(name, model, manufacturer, dmx_address, channels, group)
+
+    # Reload into controller
+    from app.luminair.models import Fixture, ChannelProfile
+    fix = Fixture(id=new_id, name=name, model=model, manufacturer=manufacturer,
+                  dmx_address=dmx_address, channel_count=len(channels),
+                  profile=ChannelProfile(channels=channels), group=group)
+    ctrl = _controller()
+    ctrl.fixtures.append(fix)
+    _engine().set_fixtures(ctrl.fixtures)
+
+    logger.info('Created fixture %d "%s" at DMX %d', new_id, name, dmx_address)
+    return jsonify({'ok': True, 'id': new_id})
+
+
+@api_bp.route('/api/fixture/<int:fixture_id>', methods=['PUT'])
+@require_auth
+def edit_fixture(fixture_id):
+    """Update a fixture's properties."""
+    data = request.get_json(silent=True) or {}
+    ctrl = _controller()
+    fix = None
+    for f in ctrl.fixtures:
+        if f.id == fixture_id:
+            fix = f
+            break
+    if fix is None:
+        return jsonify({'ok': False, 'error': 'fixture not found'}), 404
+
+    updates = {}
+    if 'name' in data:
+        fix.name = data['name'].strip()
+        updates['name'] = fix.name
+    if 'model' in data:
+        fix.model = data['model'].strip()
+        updates['model'] = fix.model
+    if 'manufacturer' in data:
+        fix.manufacturer = data['manufacturer'].strip()
+        updates['manufacturer'] = fix.manufacturer
+    if 'dmx_address' in data:
+        fix.dmx_address = int(data['dmx_address'])
+        updates['dmx_address'] = fix.dmx_address
+    if 'channels' in data:
+        from app.luminair.models import ChannelProfile
+        fix.profile = ChannelProfile(channels=data['channels'])
+        fix.channel_count = len(data['channels'])
+        updates['channels'] = data['channels']
+        updates['channel_count'] = fix.channel_count
+    if 'group' in data:
+        fix.group = data['group']
+        updates['group'] = fix.group
+
+    if updates:
+        db_update_fixture(fixture_id, **updates)
+        _engine().set_fixtures(ctrl.fixtures)
+
+    logger.info('Updated fixture %d: %s', fixture_id, list(updates.keys()))
+    return jsonify({'ok': True})
+
+
+@api_bp.route('/api/fixture/<int:fixture_id>', methods=['DELETE'])
+@require_auth
+def remove_fixture(fixture_id):
+    """Delete a fixture."""
+    ctrl = _controller()
+    fix = None
+    for f in ctrl.fixtures:
+        if f.id == fixture_id:
+            fix = f
+            break
+    if fix is None:
+        return jsonify({'ok': False, 'error': 'fixture not found'}), 404
+
+    ctrl.fixtures.remove(fix)
+    _engine().set_fixtures(ctrl.fixtures)
+    db_delete_fixture(fixture_id)
+
+    logger.info('Deleted fixture %d "%s"', fixture_id, fix.name)
+    return jsonify({'ok': True})
 
 
 @api_bp.route('/api/fixture/<int:fixture_id>/channel', methods=['POST'])

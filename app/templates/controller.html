@@ -611,7 +611,12 @@
       max-height: 80vh;
       overflow-y: auto;
       font-size: 14px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
     }
+    .settings-box::-webkit-scrollbar { width: 4px; }
+    .settings-box::-webkit-scrollbar-track { background: transparent; }
+    .settings-box::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
     .settings-box h2 {
       font-family: var(--mono);
       font-size: 12px;
@@ -734,6 +739,11 @@
       border-radius: 2px;
       transition: width 0.2s linear;
       width: 0%;
+    }
+    .settings-sep {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 12px 0;
     }
     .settings-close {
       display: block;
@@ -1013,6 +1023,7 @@
       </div>
       <span style="font-family:var(--mono);font-size:9px;color:var(--muted)">sec</span>
     </div>
+    <hr class="settings-sep">
     <div class="setting-row" style="flex-direction:column;align-items:stretch;gap:8px">
       <label>Luminair file</label>
       <div style="display:flex;gap:8px;align-items:center">
@@ -1033,6 +1044,7 @@
       </div>
       <div id="diff-result" style="font-family:var(--mono);font-size:9px;color:var(--text);max-height:200px;overflow-y:auto;display:none;background:var(--groove);border:1px solid var(--border);border-radius:4px;padding:8px;white-space:pre-wrap"></div>
     </div>
+    <hr class="settings-sep">
     <div class="setting-row" style="flex-direction:column;align-items:stretch;gap:8px">
       <label>Logo</label>
       <div style="display:flex;gap:8px;align-items:center">
@@ -1044,6 +1056,7 @@
       <label>Keep screen on</label>
       <button class="fx-btn" id="wake-lock-btn" onclick="toggleWakeLock()">OFF</button>
     </div>
+    <hr class="settings-sep">
     <div class="setting-row">
       <label>Font size</label>
       <input type="range" id="font-size-slider" min="10" max="30" value="14" step="1"
@@ -1055,6 +1068,14 @@
       <input type="range" id="ui-scale-slider" min="80" max="150" value="100" step="5"
         oninput="setUIScale(this.value)" style="flex:1;accent-color:var(--accent)">
       <span id="ui-scale-val" style="font-family:var(--mono);font-size:11px;min-width:36px;text-align:right">100%</span>
+    </div>
+    <hr class="settings-sep">
+    <div class="setting-row" style="flex-direction:column;align-items:stretch;gap:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <label>Fixtures</label>
+        <button class="fx-btn" onclick="openFixtureEditor(null)">+ ADD</button>
+      </div>
+      <div id="fixture-list" style="max-height:200px;overflow-y:auto"></div>
     </div>
     <div id="settings-actions">
       <button class="settings-close" id="settings-close-btn" onclick="settingsClose()">CLOSE</button>
@@ -1082,6 +1103,71 @@
       <button class="fx-btn" style="flex:1;justify-content:center;background:var(--accent-dim);color:var(--accent);border-color:rgba(232,160,32,0.3)" onclick="saveNewScene()">SAVE</button>
       <button class="fx-btn" style="flex:1;justify-content:center" onclick="hideNewSceneDialog()">CANCEL</button>
     </div>
+  </div>
+</div>
+
+<!-- Fixture editor overlay -->
+<div id="fixture-editor" style="display:none;position:fixed;inset:0;z-index:450;background:rgba(0,0,0,0.85);align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:1.2rem;width:90%;max-width:400px;max-height:90vh;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border) transparent;">
+    <h2 id="fix-editor-title" style="font-family:var(--mono);font-size:0.8rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:0.8rem;">Edit Fixture</h2>
+    <div style="display:flex;flex-direction:column;gap:0.6rem;">
+      <div style="display:flex;gap:0.5rem;">
+        <div style="flex:1">
+          <label style="font-family:var(--mono);font-size:0.55rem;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:0.2rem;">Name</label>
+          <input type="text" id="fix-name" style="width:100%;padding:0.4rem;background:var(--groove);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:0.7rem;">
+        </div>
+        <div style="flex:1">
+          <label style="font-family:var(--mono);font-size:0.55rem;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:0.2rem;">Group</label>
+          <select id="fix-group" style="width:100%;padding:0.4rem;background:var(--groove);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:0.7rem;">
+            <option value="slimpar">SlimPar</option>
+            <option value="triangle">Triangle</option>
+            <option value="droid">Droid</option>
+            <option value="haze">Haze</option>
+            <option value="custom">Custom</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:flex;gap:0.5rem;">
+        <div style="flex:1">
+          <label style="font-family:var(--mono);font-size:0.55rem;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:0.2rem;">Manufacturer</label>
+          <input type="text" id="fix-manufacturer" style="width:100%;padding:0.4rem;background:var(--groove);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:0.7rem;">
+        </div>
+        <div style="flex:1">
+          <label style="font-family:var(--mono);font-size:0.55rem;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:0.2rem;">Model</label>
+          <input type="text" id="fix-model" style="width:100%;padding:0.4rem;background:var(--groove);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:0.7rem;">
+        </div>
+      </div>
+      <div style="display:flex;gap:0.5rem;">
+        <div style="flex:1">
+          <label style="font-family:var(--mono);font-size:0.55rem;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:0.2rem;">DMX Address</label>
+          <input type="number" id="fix-address" min="1" max="512" style="width:100%;padding:0.4rem;background:var(--groove);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:0.7rem;">
+        </div>
+        <div style="flex:1"></div>
+      </div>
+      <div>
+        <label style="font-family:var(--mono);font-size:0.55rem;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:0.2rem;">Channels</label>
+        <div id="fix-channels" style="display:flex;flex-direction:column;gap:3px;margin-bottom:0.4rem;"></div>
+        <div style="display:flex;gap:4px;">
+          <select id="fix-ch-add" style="flex:1;padding:0.35rem;background:var(--groove);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:0.65rem;">
+            <option value="Red">Red</option><option value="Green">Green</option><option value="Blue">Blue</option>
+            <option value="White">White</option><option value="Intensity">Intensity</option><option value="Dim">Dim</option>
+            <option value="Level">Level</option><option value="Strobe">Strobe</option><option value="Mode">Mode</option>
+            <option value="Speed">Speed</option><option value="Macro">Macro</option>
+            <option value="Pan">Pan</option><option value="Pan Fine">Pan Fine</option>
+            <option value="Tilt">Tilt</option><option value="Tilt Fine">Tilt Fine</option>
+            <option value="Gobo">Gobo</option><option value="Color">Color</option>
+            <option value="Prism">Prism</option><option value="Focus">Focus</option><option value="Zoom">Zoom</option>
+            <option value="Custom">Custom...</option>
+          </select>
+          <button class="fx-btn" onclick="fixAddChannel()" style="font-size:0.6rem;padding:0.3rem 0.6rem">ADD</button>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:0.5rem;margin-top:0.8rem;">
+      <button class="fx-btn" style="flex:1;justify-content:center;background:var(--accent-dim);color:var(--accent);border-color:rgba(232,160,32,0.3)" onclick="saveFixture()">SAVE</button>
+      <button class="fx-btn" style="flex:1;justify-content:center" onclick="closeFixtureEditor()">CANCEL</button>
+    </div>
+    <button class="fx-btn" id="fix-delete-btn" onclick="deleteFixture()" style="width:100%;justify-content:center;margin-top:0.5rem;color:var(--danger);border-color:var(--danger);display:none">DELETE</button>
   </div>
 </div>
 
@@ -1265,8 +1351,7 @@ function renderFaders() {
     const faderH = faderEl.getBoundingClientRect().height;
     const availH = faderH - 16;
     const allNames = fixtures.map(f => {
-      let n = f.name.replace(/^N?\s*\d+\s*N?\s*/, '').replace(/^N\s+/, '').trim();
-      return n || f.name;
+      return f.name;
     });
     const maxLen = Math.max(...allNames.map(n => n.length), 1);
     const sz = Math.max(6, Math.min(16, Math.floor(availH / maxLen * 1.4)));
@@ -1342,11 +1427,7 @@ function buildChannel(f) {
   }
 
   // Label — inside fader track, vertical
-  let label = f.name
-    .replace(/^N?\s*\d+\s*N?\s*/, '')
-    .replace(/^N\s+/, '')
-    .trim();
-  if (!label) label = f.name;
+  const label = f.name;
 
   const labelEl = document.createElement('div');
   labelEl.className = 'ch-label';
@@ -2049,9 +2130,7 @@ function openSceneCtx(sceneId, x, y) {
     const chip = document.createElement('span');
     const isOn = controlled.has(f.id);
     chip.className = 'ctx-fix-chip' + (isOn ? ' on' : '');
-    let label = f.name.replace(/^N?\s*\d+\s*N?\s*/, '').replace(/^N\s+/, '').trim();
-    if (!label) label = f.name;
-    chip.textContent = label;
+    chip.textContent = f.name;
     chip.title = f.name;
     chip.onclick = () => {
       chip.classList.toggle('on');
@@ -2451,6 +2530,7 @@ async function toggleSettings() {
       }
     }
     loadHistory();
+    loadFixtureList();
     // Wake lock button
     const wlBtn = document.getElementById('wake-lock-btn');
     wlBtn.textContent = wakeLockActive ? 'ON' : 'OFF';
@@ -2473,6 +2553,145 @@ async function toggleSettings() {
       wakeLock: wakeLockActive,
     };
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FIXTURE EDITOR
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+let _editFixId = null;
+let _editFixChannels = [];
+
+function loadFixtureList() {
+  const list = document.getElementById('fixture-list');
+  if (!list) return;
+  list.innerHTML = '';
+  fixtures.forEach(f => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;margin-bottom:3px;cursor:pointer;';
+    row.innerHTML =
+      '<span style="font-family:var(--mono);font-size:0.65rem;color:var(--accent);min-width:2rem">' + f.dmx_address + '</span>' +
+      '<span style="font-family:var(--mono);font-size:0.65rem;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + f.name + '</span>' +
+      '<span style="font-family:var(--mono);font-size:0.55rem;color:var(--muted)">' + f.channels.length + 'ch</span>';
+    row.onclick = () => openFixtureEditor(f.id);
+    list.appendChild(row);
+  });
+}
+
+function openFixtureEditor(fixtureId) {
+  _editFixId = fixtureId;
+  const panel = document.getElementById('fixture-editor');
+  const title = document.getElementById('fix-editor-title');
+  const delBtn = document.getElementById('fix-delete-btn');
+
+  if (fixtureId != null) {
+    const f = fixtures.find(x => x.id === fixtureId);
+    if (!f) return;
+    title.textContent = 'Edit Fixture';
+    document.getElementById('fix-name').value = f.name;
+    document.getElementById('fix-model').value = f.model || '';
+    document.getElementById('fix-manufacturer').value = f.manufacturer || '';
+    document.getElementById('fix-address').value = f.dmx_address;
+    document.getElementById('fix-group').value = f.group;
+    _editFixChannels = [...f.channels];
+    delBtn.style.display = '';
+  } else {
+    title.textContent = 'Add Fixture';
+    document.getElementById('fix-name').value = '';
+    document.getElementById('fix-model').value = '';
+    document.getElementById('fix-manufacturer').value = '';
+    document.getElementById('fix-address').value = '1';
+    document.getElementById('fix-group').value = 'custom';
+    _editFixChannels = ['Intensity'];
+    delBtn.style.display = 'none';
+  }
+  renderFixChannels();
+  panel.style.display = 'flex';
+}
+
+function closeFixtureEditor() {
+  document.getElementById('fixture-editor').style.display = 'none';
+  _editFixId = null;
+}
+
+function renderFixChannels() {
+  const container = document.getElementById('fix-channels');
+  container.innerHTML = '';
+  _editFixChannels.forEach((ch, i) => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:4px;';
+    row.innerHTML =
+      '<span style="font-family:var(--mono);font-size:0.55rem;color:var(--muted);width:1.2rem;text-align:right">' + (i + 1) + '</span>' +
+      '<span style="font-family:var(--mono);font-size:0.65rem;color:var(--text);flex:1;padding:0.3rem 0.4rem;background:var(--groove);border:1px solid var(--border);border-radius:3px">' + ch + '</span>' +
+      '<button class="fx-btn" style="font-size:1rem;padding:0.3rem 0.5rem;color:var(--danger);line-height:1" onclick="_editFixChannels.splice(' + i + ',1);renderFixChannels()">×</button>';
+    container.appendChild(row);
+  });
+}
+
+function fixAddChannel() {
+  const sel = document.getElementById('fix-ch-add');
+  let val = sel.value;
+  if (val === 'Custom') {
+    val = prompt('Channel name:');
+    if (!val || !val.trim()) return;
+    val = val.trim();
+  }
+  _editFixChannels.push(val);
+  renderFixChannels();
+}
+
+async function saveFixture() {
+  const name = document.getElementById('fix-name').value.trim();
+  if (!name) { document.getElementById('fix-name').focus(); return; }
+  const data = {
+    name,
+    model: document.getElementById('fix-model').value.trim(),
+    manufacturer: document.getElementById('fix-manufacturer').value.trim(),
+    dmx_address: parseInt(document.getElementById('fix-address').value) || 1,
+    channels: _editFixChannels,
+    group: document.getElementById('fix-group').value,
+  };
+
+  let resp;
+  if (_editFixId) {
+    resp = await api('/api/fixture/' + _editFixId, {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(data)
+    });
+  } else {
+    resp = await api('/api/fixture', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(data)
+    });
+  }
+
+  if (resp && resp.ok) {
+    // Reload fixtures
+    const fResp = await api('/api/fixtures');
+    if (fResp && fResp.ok) {
+      fixtures = await fResp.json();
+      renderFaders();
+      loadFixtureList();
+    }
+  }
+  closeFixtureEditor();
+}
+
+async function deleteFixture() {
+  if (!_editFixId) return;
+  if (!confirm('Delete this fixture?')) return;
+  const resp = await api('/api/fixture/' + _editFixId, { method: 'DELETE' });
+  if (resp && resp.ok) {
+    const fResp = await api('/api/fixtures');
+    if (fResp && fResp.ok) {
+      fixtures = await fResp.json();
+      renderFaders();
+      loadFixtureList();
+    }
+  }
+  closeFixtureEditor();
 }
 
 function saveDefaultScene(val) {
@@ -2593,6 +2812,28 @@ function hardReload() {
     doReload();
   }
 }
+
+// Global Esc key handler — close any open dialog
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  // Close in priority order (topmost first)
+  if (document.getElementById('fixture-editor').style.display === 'flex') {
+    closeFixtureEditor(); return;
+  }
+  if (document.getElementById('new-scene-panel').style.display === 'flex') {
+    hideNewSceneDialog(); return;
+  }
+  if (document.getElementById('scene-ctx-overlay').classList.contains('visible')) {
+    closeSceneCtx(); return;
+  }
+  if (document.getElementById('color-popover').classList.contains('visible')) {
+    closePopover(); return;
+  }
+  if (document.getElementById('settings-panel').classList.contains('visible')) {
+    if (settingsDirty) { settingsCancel(); } else { settingsClose(); }
+    return;
+  }
+});
 
 // Register service worker for PWA install
 if ('serviceWorker' in navigator) {
